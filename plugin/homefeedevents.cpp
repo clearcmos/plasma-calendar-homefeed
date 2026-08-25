@@ -1,0 +1,208 @@
+// SPDX-License-Identifier: MIT
+#include "homefeedevents.h"
+#include "homefeed_debug.h"
+
+#include <QDesktopServices>
+#include <QNetworkReply>
+#include <QNetworkRequest>
+#include <QSet>
+
+using namespace Qt::StringLiterals;
+using CalendarEvents::EventData;
+
+namespace
+{
+
+constexpr int kTransferTimeoutMs = 15'000;
+constexpr int kDefaultRefreshMinutes = 5;
+
+QHash<QString, EventData> byUid(const QMultiHash<QDate, EventData> &byDay)
+{
+    QHash<QString, EventData> result;
+    for (auto it = byDay.cbegin(); it != byDay.cend(); ++it) {
+        result.insert(it->uid(), *it);
+    }
+    return result;
+}
+
+}
+
+HomeFeedEventsPlugin::HomeFeedEventsPlugin(QObject *parent)
+    : CalendarEvents::CalendarEventsPlugin(parent)
+    , m_config(KSharedConfig::openConfig(u"plasma-calendar-homefeedrc"_s, KConfig::NoGlobals))
+{
+    m_network.setTransferTimeout(kTransferTimeoutMs);
+    m_network.setRedirectPolicy(QNetworkRequest::NoLessSafeRedirectPolicy);
+
+    m_refreshTimer.setTimerType(Qt::VeryCoarseTimer);
+    connect(&m_refreshTimer, &QTimer::timeout, this, &HomeFeedEventsPlugin::refresh);
+
+    readSettings(m_config->group(u"General"_s));
+
+    m_configWatcher = KConfigWatcher::create(m_config);
+    connect(m_configWatcher.get(), &KConfigWatcher::configChanged, this, [this](const KConfigGroup &group) {
+        if (group.name() != "General"_L1) {
+            return;
+        }
+        forgetPublished();
+        m_events.clear();
+        m_links.clear();
+        m_fetched = false;
+        readSettings(group);
+        refresh();
+    });
+
+    refresh();
+}
+
+HomeFeedEventsPlugin::~HomeFeedEventsPlugin() = default;
+
+void HomeFeedEventsPlugin::readSettings(const KConfigGroup &group)
+{
+    m_feedUrl = QUrl(group.readEntry("FeedUrl", QString()));
+    m_defaultColor = group.readEntry("EventColor", QString());
+    const int minutes = qMax(1, group.readEntry("RefreshMinutes", kDefaultRefreshMinutes));
+    m_refreshTimer.setInterval(minutes * 60 * 1000);
+    m_warnedMissingUrl = false;
+
+    if (m_feedUrl.isValid() && !m_feedUrl.isEmpty()) {
+        m_refreshTimer.start();
+    } else {
+        m_refreshTimer.stop();
+    }
+}
+
+void HomeFeedEventsPlugin::loadEventsForDateRange(const QDate &startDate, const QDate &endDate)
+{
+    m_rangeStart = startDate;
+    m_rangeEnd = endDate;
+
+    if (!m_fetched) {
+        // The answer arrives from onReplyFinished() once the first fetch lands.
+        if (!m_pendingReply) {
+            refresh();
+        }
+        return;
+    }
+
+    m_published = HomeFeed::eventsByDay(m_events, m_rangeStart, m_rangeEnd);
+    Q_EMIT dataReady(m_published);
+}
+
+bool HomeFeedEventsPlugin::showEvent(const QString &uid)
+{
+    const QUrl url = m_links.value(uid);
+    if (!url.isValid() || url.isEmpty()) {
+        return false;
+    }
+    return QDesktopServices::openUrl(url);
+}
+
+void HomeFeedEventsPlugin::refresh()
+{
+    if (!m_feedUrl.isValid() || m_feedUrl.isEmpty()) {
+        if (!m_warnedMissingUrl) {
+            qCWarning(HOMEFEED) << "No FeedUrl configured in plasma-calendar-homefeedrc [General]; nothing to show";
+            m_warnedMissingUrl = true;
+        }
+        return;
+    }
+    if (m_pendingReply) {
+        return;
+    }
+
+    QNetworkRequest request(m_feedUrl);
+    request.setAttribute(QNetworkRequest::CacheLoadControlAttribute, QNetworkRequest::AlwaysNetwork);
+    request.setHeader(QNetworkRequest::UserAgentHeader, u"plasma-calendar-homefeed"_s);
+    m_pendingReply = m_network.get(request);
+    connect(m_pendingReply, &QNetworkReply::finished, this, [this, reply = m_pendingReply] {
+        onReplyFinished(reply);
+    });
+}
+
+void HomeFeedEventsPlugin::onReplyFinished(QNetworkReply *reply)
+{
+    reply->deleteLater();
+    if (reply == m_pendingReply) {
+        m_pendingReply = nullptr;
+    }
+
+    if (reply->error() != QNetworkReply::NoError) {
+        qCWarning(HOMEFEED) << "Feed fetch failed, keeping previous events:" << reply->url().toDisplayString() << reply->errorString();
+        return;
+    }
+
+    const HomeFeed::ParseResult result = HomeFeed::parseFeed(reply->readAll());
+    if (!result.ok()) {
+        qCWarning(HOMEFEED) << "Feed rejected, keeping previous events:" << result.error;
+        return;
+    }
+    if (result.skipped > 0) {
+        qCInfo(HOMEFEED) << "Skipped" << result.skipped << "malformed feed entries";
+    }
+    applyEvents(result.events);
+}
+
+void HomeFeedEventsPlugin::applyEvents(const QList<HomeFeed::FeedEvent> &events)
+{
+    m_events = events;
+    m_links.clear();
+    for (HomeFeed::FeedEvent &event : m_events) {
+        if (event.data.eventColor().isEmpty() && !m_defaultColor.isEmpty()) {
+            event.data.setEventColor(m_defaultColor);
+        }
+        m_links.insert(event.data.uid(), event.url);
+    }
+
+    const bool firstFetch = !m_fetched;
+    m_fetched = true;
+
+    if (!m_rangeStart.isValid() || !m_rangeEnd.isValid()) {
+        return; // Nobody has asked for a range yet.
+    }
+
+    const QMultiHash<QDate, EventData> current = HomeFeed::eventsByDay(m_events, m_rangeStart, m_rangeEnd);
+    if (firstFetch) {
+        m_published = current;
+        Q_EMIT dataReady(m_published);
+        return;
+    }
+
+    // Steady state: emit only what changed so the model never holds duplicates.
+    const QHash<QString, EventData> previousByUid = byUid(m_published);
+    const QHash<QString, EventData> currentByUid = byUid(current);
+
+    QSet<QString> readd;
+    for (auto it = previousByUid.cbegin(); it != previousByUid.cend(); ++it) {
+        const auto found = currentByUid.constFind(it.key());
+        if (found == currentByUid.cend()) {
+            Q_EMIT eventRemoved(it.key());
+        } else if (!HomeFeed::sameEvent(*it, *found)) {
+            Q_EMIT eventRemoved(it.key());
+            readd.insert(it.key());
+        }
+    }
+
+    QMultiHash<QDate, EventData> added;
+    for (auto it = current.cbegin(); it != current.cend(); ++it) {
+        if (!previousByUid.contains(it->uid()) || readd.contains(it->uid())) {
+            added.insert(it.key(), *it);
+        }
+    }
+
+    m_published = current;
+    if (!added.isEmpty()) {
+        Q_EMIT dataReady(added);
+    }
+}
+
+void HomeFeedEventsPlugin::forgetPublished()
+{
+    const QHash<QString, EventData> published = byUid(m_published);
+    for (auto it = published.cbegin(); it != published.cend(); ++it) {
+        Q_EMIT eventRemoved(it.key());
+    }
+    m_published.clear();
+}
+
+#include "moc_homefeedevents.cpp"

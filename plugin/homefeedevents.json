@@ -1,0 +1,10 @@
+{
+    "KPlugin": {
+        "Description": "Show events from a self-hosted JSON calendar feed",
+        "Icon": "view-calendar-agenda",
+        "Id": "homefeedevents",
+        "License": "MIT",
+        "Name": "Home feed",
+        "Version": "0.1.0"
+    }
+}

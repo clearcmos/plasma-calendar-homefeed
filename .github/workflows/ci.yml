@@ -1,0 +1,65 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-test:
+    # Arch is the only target platform (installed via the PKGBUILD), so the
+    # job runs in an Arch container with the same KF6/Qt packages the
+    # PKGBUILD depends on.
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    container: archlinux:base-devel
+    steps:
+      - name: Install toolchain
+        run: pacman -Syu --noconfirm --needed git cmake ninja extra-cmake-modules qt6-base kconfig kcoreaddons kdeclarative clang cppcheck gcovr namcap
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Configure (warnings are errors, coverage on)
+        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON -DCMAKE_CXX_FLAGS="-Werror --coverage"
+
+      - name: Format check (KDE style via ECM)
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          cmake --build build --target clang-format
+          git diff --exit-code -- plugin tests
+
+      - name: Static analysis
+        run: cppcheck --library=qt --enable=warning,style,performance,portability --error-exitcode=1 --suppress=missingIncludeSystem --inline-suppr -I plugin plugin tests
+
+      - name: Build
+        run: cmake --build build
+
+      - name: Tests
+        run: ctest --test-dir build --output-on-failure
+
+      - name: Coverage gate (parser)
+        run: gcovr --root . --filter 'plugin/feedparser\.cpp' --fail-under-line 90 --print-summary build
+
+      - name: Install layout
+        run: |
+          DESTDIR="$PWD/stage" cmake --install build
+          test -f stage/usr/lib/qt6/plugins/plasmacalendarplugins/homefeedevents.so
+
+      - name: PKGBUILD lint
+        run: namcap PKGBUILD
+
+  ci-ok:
+    needs: [build-test]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - run: echo ok

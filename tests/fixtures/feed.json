@@ -1,0 +1,117 @@
+{
+  "generated_at": "2026-08-25T12:00:00+00:00",
+  "timezone": "UTC",
+  "window": {"start": "2026-05-27", "end": "2027-08-25"},
+  "event_count": 8,
+  "events": [
+    {
+      "uid": "timed-single",
+      "title": "Dentist",
+      "start": "2026-08-25T14:00:00+00:00",
+      "end": "2026-08-25T15:00:00+00:00",
+      "all_day": false,
+      "location": "Downtown",
+      "description": "Bring the insurance card",
+      "url": "https://calendar.example/event/timed-single",
+      "color": "#7986cb",
+      "series": null
+    },
+    {
+      "uid": "allday-single",
+      "title": "Payday",
+      "start": "2026-08-28",
+      "end": "2026-08-29",
+      "all_day": true,
+      "location": null,
+      "description": null,
+      "url": "https://calendar.example/event/allday-single",
+      "color": null,
+      "series": null
+    },
+    {
+      "uid": "allday-three-days",
+      "title": "Trip",
+      "start": "2026-09-04",
+      "end": "2026-09-07",
+      "all_day": true,
+      "location": "Quebec",
+      "description": null,
+      "url": "https://calendar.example/event/allday-three-days",
+      "color": null,
+      "series": null
+    },
+    {
+      "uid": "allday-no-end",
+      "title": "Anniversary",
+      "start": "2026-09-08",
+      "end": null,
+      "all_day": true,
+      "location": null,
+      "description": null,
+      "url": null,
+      "color": null,
+      "series": "anniversary-series"
+    },
+    {
+      "uid": "timed-overnight",
+      "title": "Night shift",
+      "start": "2026-08-30T23:00:00+00:00",
+      "end": "2026-08-31T01:00:00+00:00",
+      "all_day": false,
+      "location": null,
+      "description": null,
+      "url": null,
+      "color": null,
+      "series": null
+    },
+    {
+      "uid": "timed-ends-midnight",
+      "title": "Party",
+      "start": "2026-09-01T20:00:00+00:00",
+      "end": "2026-09-02T00:00:00+00:00",
+      "all_day": false,
+      "location": null,
+      "description": null,
+      "url": null,
+      "color": null,
+      "series": null
+    },
+    {
+      "uid": "timed-no-end",
+      "title": "Reminder",
+      "start": "2026-09-10T09:00:00+00:00",
+      "end": null,
+      "all_day": false,
+      "location": null,
+      "description": null,
+      "url": null,
+      "color": null,
+      "series": null
+    },
+    {
+      "uid": "timed-offset",
+      "title": "Late call",
+      "start": "2026-09-15T23:30:00-04:00",
+      "end": "2026-09-16T00:30:00-04:00",
+      "all_day": false,
+      "location": null,
+      "description": null,
+      "url": null,
+      "color": null,
+      "series": null
+    },
+    {
+      "title": "no uid, must be skipped",
+      "start": "2026-09-11",
+      "end": "2026-09-12",
+      "all_day": true
+    },
+    {
+      "uid": "bad-start",
+      "title": "unparseable start, must be skipped",
+      "start": "not a date",
+      "all_day": false
+    },
+    "not an object, must be skipped"
+  ]
+}

@@ -1,0 +1,8 @@
+# Only GitHub Actions are versioned here; build dependencies are Arch system
+# packages resolved at build time, so there is no lockfile to bump.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly

@@ -1,0 +1,23 @@
+# CMake build trees (build/, build-debug/, ...)
+/build*/
+
+# Written into the source tree by ECM's kde_clang_format() at configure time;
+# the style is owned by ECM, so the copy here is an artifact, not source.
+/.clang-format
+
+# makepkg run in-tree: source checkout, staging root, and built packages.
+# (Plugin sources live in plugin/, not src/, precisely so makepkg's src/
+# working directory can never collide with them.)
+/src/
+/pkg/
+/plasma-calendar-homefeed/
+*.pkg.tar.zst
+*.pkg.tar.zst.sig
+
+# gcov/gcovr coverage output
+*.gcda
+*.gcno
+/coverage*
+
+# Install-layout check staging root (CI and local runs of the same step)
+/stage/
