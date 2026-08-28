@@ -2,6 +2,7 @@
 #include "feedparser.h"
 
 #include <QFile>
+#include <QSet>
 #include <QTest>
 #include <QTimeZone>
 
@@ -181,6 +182,76 @@ private Q_SLOTS:
         QVERIFY(!result.windowStart.isValid());
     }
 
+    void diffOfIdenticalStatesIsEmpty()
+    {
+        const QMultiHash<QDate, EventData> byDay = HomeFeed::eventsByDay(m_result.events, kFrom, kTo);
+        const HomeFeed::PublishDiff diff = HomeFeed::diffPublished(byDay, byDay);
+        QVERIFY(diff.removedUids.isEmpty());
+        QVERIFY(diff.added.isEmpty());
+    }
+
+    void diffReportsVanishedChangedAndNewEvents()
+    {
+        const QMultiHash<QDate, EventData> previous = HomeFeed::eventsByDay(m_result.events, kFrom, kTo);
+
+        QList<FeedEvent> events = m_result.events;
+        events.erase(std::remove_if(events.begin(),
+                                    events.end(),
+                                    [](const FeedEvent &event) {
+                                        return event.data.uid() == u"timed-single"_s;
+                                    }),
+                     events.end());
+        for (FeedEvent &event : events) {
+            if (event.data.uid() == u"allday-three-days"_s) {
+                event.data.setTitle(u"Road trip"_s);
+            }
+        }
+        EventData fresh;
+        fresh.setUid(u"brand-new"_s);
+        fresh.setTitle(u"New"_s);
+        fresh.setStartDateTime(QDate(2026, 9, 20).startOfDay());
+        fresh.setEndDateTime(QDate(2026, 9, 20).endOfDay());
+        fresh.setIsAllDay(true);
+        events.append({fresh, QUrl()});
+
+        const HomeFeed::PublishDiff diff = HomeFeed::diffPublished(previous, HomeFeed::eventsByDay(events, kFrom, kTo));
+
+        // The three-day trip is removed once, not once per day.
+        QCOMPARE(diff.removedUids, (QStringList{u"allday-three-days"_s, u"timed-single"_s}));
+        QCOMPARE(diff.added.size(), 4); // retitled trip under its three days, plus the new event
+        QCOMPARE(diff.added.values(QDate(2026, 9, 4)).first().title(), u"Road trip"_s);
+        QCOMPARE(diff.added.values(QDate(2026, 9, 5)).size(), 1);
+        QCOMPARE(diff.added.values(QDate(2026, 9, 6)).size(), 1);
+        QCOMPARE(diff.added.values(QDate(2026, 9, 20)).first().uid(), u"brand-new"_s);
+        QVERIFY(diff.added.values(QDate(2026, 8, 28)).isEmpty()); // untouched payday is not re-sent
+    }
+
+    void diffMovedEventLandsOnlyOnItsNewDay()
+    {
+        // Pins why eventModified() is not used: it replaces in place and would
+        // leave the event on its old day.
+        const QMultiHash<QDate, EventData> previous = HomeFeed::eventsByDay(m_result.events, kFrom, kTo);
+        QList<FeedEvent> events = m_result.events;
+        for (FeedEvent &event : events) {
+            if (event.data.uid() == u"allday-single"_s) {
+                event.data.setStartDateTime(QDate(2026, 8, 29).startOfDay());
+                event.data.setEndDateTime(QDate(2026, 8, 29).endOfDay());
+            }
+        }
+        const HomeFeed::PublishDiff diff = HomeFeed::diffPublished(previous, HomeFeed::eventsByDay(events, kFrom, kTo));
+        QCOMPARE(diff.removedUids, QStringList{u"allday-single"_s});
+        QCOMPARE(diff.added.keys(), QList<QDate>{QDate(2026, 8, 29)});
+    }
+
+    void diffAgainstEmptyRemovesEveryUidOnce()
+    {
+        const QMultiHash<QDate, EventData> previous = HomeFeed::eventsByDay(m_result.events, kFrom, kTo);
+        const HomeFeed::PublishDiff diff = HomeFeed::diffPublished(previous, {});
+        QCOMPARE(diff.removedUids.size(), 8);
+        QCOMPARE(QSet<QString>(diff.removedUids.cbegin(), diff.removedUids.cend()).size(), 8);
+        QVERIFY(diff.added.isEmpty());
+    }
+
     void sameEventDetectsFieldChanges()
     {
         const FeedEvent *event = find(m_result, u"timed-single"_s);
@@ -198,6 +269,9 @@ private Q_SLOTS:
     }
 
 private:
+    // Wide enough to hold every valid fixture event.
+    inline static const QDate kFrom{2026, 8, 25};
+    inline static const QDate kTo{2026, 9, 30};
     ParseResult m_result;
 };
 

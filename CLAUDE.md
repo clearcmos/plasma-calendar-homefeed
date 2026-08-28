@@ -11,14 +11,18 @@ standard: tests, lint, format, coverage gate, hardened CI.
 
 ## Structure
 
-- `plugin/feedparser.{h,cpp}`: pure parsing and per-day expansion. No Qt
-  plugin machinery, no network. Everything with a testable rule lives here.
+- `plugin/feedparser.{h,cpp}`: pure parsing, per-day expansion, and the
+  publish diff (`diffPublished`). No Qt plugin machinery, no network.
+  Everything with a testable rule lives here.
 - `plugin/homefeedevents.{h,cpp,json}`: the Qt plugin. Config, fetch timer,
-  diffing against what the clock model already holds, `ShowEventInterface`.
+  emitting the diff to the clock model, `ShowEventInterface`.
 - `plugin/CMakeLists.txt`: `homefeedparser` static library plus the
   `homefeedevents` plugin installed to `plasmacalendarplugins/`.
 - `tests/feedparsertest.cpp`, `tests/fixtures/feed.json`: QTest suite for the
-  parser.
+  parser and the diff.
+- `tests/pluginloadtest.cpp`: loads the built `.so` through `KPluginMetaData`
+  and `QPluginLoader` (plasma-workspace's path) with an empty
+  `XDG_CONFIG_HOME`; checks metadata, both interfaces, and offline no-ops.
 - `PKGBUILD`: Arch package, git source, version derived from `project()`.
 - `.github/workflows/ci.yml`: Arch container job; see Commands.
 
@@ -59,8 +63,12 @@ CI runs exactly these, in this order, then checks the install layout
 ## Test coverage policy
 
 - `feedparser.cpp`: covered by `feedparsertest`, gated at 90 percent lines.
-- `homefeedevents.cpp`: exempt. It needs plasmashell's `EventPluginsManager`,
-  a live network endpoint, and `KConfigWatcher` notifications to exercise.
+  Any new rule about dates, spans, document shape, or what to emit goes here
+  with a test, never into the plugin file.
+- `homefeedevents.cpp`: covered structurally by `pluginloadtest` (metadata,
+  loadability, both interfaces, unconfigured no-ops). The remaining paths
+  (network reply handling, `KConfigWatcher` reload, live emission into
+  plasmashell) are exempt: they need a live endpoint and a running shell.
   Verified manually by installing and enabling the plugin in the clock.
 
 ## Changelog and updates
@@ -68,6 +76,12 @@ CI runs exactly these, in this order, then checks the install layout
 - No CHANGELOG file. Git history and GitHub releases serve the purpose.
 - Build dependencies are Arch system packages resolved at build time; there
   is no lockfile. Dependabot covers GitHub Actions only.
+- CI's `archlinux:base-devel` image is a tag, not a digest, and `pacman -Syu`
+  installs whatever is current. This is deliberate: the only target is a
+  rolling distro, so the question CI answers is "does this build on today's
+  Arch", the same question the PKGBUILD faces on the user's machine. Pinning
+  the image would make CI drift from the target, and Dependabot does not bump
+  workflow `container:` digests.
 - Deployment to the author's machine (setup script block, rc file) lives in
   the consumer's configuration repository, not here.
 
@@ -98,3 +112,12 @@ CI runs exactly these, in this order, then checks the install layout
   gives live reload with far less code.
 - 2026-08-25: CI runs in an `archlinux:base-devel` container because Arch is
   the only target and its KF6/Qt packages match the PKGBUILD's dependencies.
+- 2026-08-27: Moved the refresh diff out of the plugin into
+  `HomeFeed::diffPublished`. It was pure logic hiding under the "plugin glue,
+  exempt" label; it now has tests for new, vanished, changed, and moved
+  events, including the rule that a multi-day event is removed once by uid.
+- 2026-08-27: Added `pluginloadtest`. The explicit `Id` metadata warning
+  reached an installed build because nothing in CI loaded the plugin the way
+  plasmashell does; the test now pins that and the two interfaces.
+- 2026-08-27: Recorded the unpinned Arch CI image as a decision rather than a
+  gap (see Changelog and updates).

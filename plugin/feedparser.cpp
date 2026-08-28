@@ -6,12 +6,22 @@
 #include <QJsonObject>
 #include <QJsonParseError>
 #include <QJsonValue>
+#include <QSet>
 
 using namespace Qt::StringLiterals;
 using CalendarEvents::EventData;
 
 namespace
 {
+
+QHash<QString, EventData> byUid(const QMultiHash<QDate, EventData> &byDay)
+{
+    QHash<QString, EventData> result;
+    for (auto it = byDay.cbegin(); it != byDay.cend(); ++it) {
+        result.insert(it->uid(), *it);
+    }
+    return result;
+}
 
 QString stringOrEmpty(const QJsonObject &object, QLatin1StringView key)
 {
@@ -151,6 +161,31 @@ QMultiHash<QDate, EventData> eventsByDay(const QList<FeedEvent> &events, const Q
         }
     }
     return byDay;
+}
+
+PublishDiff diffPublished(const QMultiHash<QDate, EventData> &previous, const QMultiHash<QDate, EventData> &current)
+{
+    const QHash<QString, EventData> previousByUid = byUid(previous);
+    const QHash<QString, EventData> currentByUid = byUid(current);
+
+    PublishDiff diff;
+    QSet<QString> readd;
+    for (auto it = previousByUid.cbegin(); it != previousByUid.cend(); ++it) {
+        const auto found = currentByUid.constFind(it.key());
+        if (found == currentByUid.cend()) {
+            diff.removedUids.append(it.key());
+        } else if (!sameEvent(*it, *found)) {
+            diff.removedUids.append(it.key());
+            readd.insert(it.key());
+        }
+    }
+    for (auto it = current.cbegin(); it != current.cend(); ++it) {
+        if (!previousByUid.contains(it->uid()) || readd.contains(it->uid())) {
+            diff.added.insert(it.key(), *it);
+        }
+    }
+    diff.removedUids.sort();
+    return diff;
 }
 
 bool sameEvent(const EventData &a, const EventData &b)

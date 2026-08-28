@@ -130,9 +130,12 @@ gcovr --root . --filter 'plugin/feedparser\.cpp' --fail-under-line 90 --print-su
 ```
 
 The `clang-format` target rewrites sources in the KDE style shipped with ECM;
-CI runs the same target and fails on any resulting diff. The tests run with
-`TZ=UTC` (set by CTest) and refuse to run under any other zone, because day
-assignment depends on it.
+CI runs the same target and fails on any resulting diff. Two test binaries
+run under CTest: `feedparsertest` covers parsing, per-day expansion, and the
+refresh diff (with `TZ=UTC`, which it asserts, because day assignment depends
+on the zone); `pluginloadtest` loads the built `.so` the way plasmashell does
+and checks its metadata and interfaces, with an empty `XDG_CONFIG_HOME` so it
+never touches the network.
 
 To see the plugin's log while it runs inside plasmashell:
 

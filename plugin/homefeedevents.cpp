@@ -5,7 +5,6 @@
 #include <QDesktopServices>
 #include <QNetworkReply>
 #include <QNetworkRequest>
-#include <QSet>
 
 using namespace Qt::StringLiterals;
 using CalendarEvents::EventData;
@@ -15,15 +14,6 @@ namespace
 
 constexpr int kTransferTimeoutMs = 15'000;
 constexpr int kDefaultRefreshMinutes = 5;
-
-QHash<QString, EventData> byUid(const QMultiHash<QDate, EventData> &byDay)
-{
-    QHash<QString, EventData> result;
-    for (auto it = byDay.cbegin(); it != byDay.cend(); ++it) {
-        result.insert(it->uid(), *it);
-    }
-    return result;
-}
 
 }
 
@@ -169,38 +159,21 @@ void HomeFeedEventsPlugin::applyEvents(const QList<HomeFeed::FeedEvent> &events)
     }
 
     // Steady state: emit only what changed so the model never holds duplicates.
-    const QHash<QString, EventData> previousByUid = byUid(m_published);
-    const QHash<QString, EventData> currentByUid = byUid(current);
-
-    QSet<QString> readd;
-    for (auto it = previousByUid.cbegin(); it != previousByUid.cend(); ++it) {
-        const auto found = currentByUid.constFind(it.key());
-        if (found == currentByUid.cend()) {
-            Q_EMIT eventRemoved(it.key());
-        } else if (!HomeFeed::sameEvent(*it, *found)) {
-            Q_EMIT eventRemoved(it.key());
-            readd.insert(it.key());
-        }
+    const HomeFeed::PublishDiff diff = HomeFeed::diffPublished(m_published, current);
+    for (const QString &uid : diff.removedUids) {
+        Q_EMIT eventRemoved(uid);
     }
-
-    QMultiHash<QDate, EventData> added;
-    for (auto it = current.cbegin(); it != current.cend(); ++it) {
-        if (!previousByUid.contains(it->uid()) || readd.contains(it->uid())) {
-            added.insert(it.key(), *it);
-        }
-    }
-
     m_published = current;
-    if (!added.isEmpty()) {
-        Q_EMIT dataReady(added);
+    if (!diff.added.isEmpty()) {
+        Q_EMIT dataReady(diff.added);
     }
 }
 
 void HomeFeedEventsPlugin::forgetPublished()
 {
-    const QHash<QString, EventData> published = byUid(m_published);
-    for (auto it = published.cbegin(); it != published.cend(); ++it) {
-        Q_EMIT eventRemoved(it.key());
+    const HomeFeed::PublishDiff diff = HomeFeed::diffPublished(m_published, {});
+    for (const QString &uid : diff.removedUids) {
+        Q_EMIT eventRemoved(uid);
     }
     m_published.clear();
 }

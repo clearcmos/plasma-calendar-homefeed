@@ -8,6 +8,7 @@
 #include <QList>
 #include <QMultiHash>
 #include <QString>
+#include <QStringList>
 #include <QUrl>
 
 namespace HomeFeed
@@ -47,5 +48,19 @@ QMultiHash<QDate, CalendarEvents::EventData> eventsByDay(const QList<FeedEvent> 
 
 // Field-wise comparison used to detect changed events between refreshes.
 bool sameEvent(const CalendarEvents::EventData &a, const CalendarEvents::EventData &b);
+
+struct PublishDiff {
+    // Emit eventRemoved() for each; sorted, one entry per uid however many
+    // days the event spanned.
+    QStringList removedUids;
+    // Emit dataReady() once with this if it is not empty.
+    QMultiHash<QDate, CalendarEvents::EventData> added;
+};
+
+// What to tell the clock's model so that `previous` (what it holds from this
+// plugin) becomes `current`. A changed event is removed by uid and re-added
+// under every day it now touches; eventModified() is deliberately not used
+// because it replaces in place and cannot move an event between days.
+PublishDiff diffPublished(const QMultiHash<QDate, CalendarEvents::EventData> &previous, const QMultiHash<QDate, CalendarEvents::EventData> &current);
 
 }
