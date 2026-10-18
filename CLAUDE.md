@@ -5,24 +5,35 @@ Guidance for agents working in this repository.
 ## What this is
 
 A `CalendarEvents::CalendarEventsPlugin` for the Plasma 6 digital clock that
-fetches a JSON event feed over HTTP(S). Public repo, installed on the author's
+fetches a JSON event feed over HTTP(S), and a compiled Plasma applet ("Next
+Event") that shows the feed's next event in the panel. Public repo, installed on the author's
 Arch workstation through the PKGBUILD. Tier 2 of the house engineering
 standard: tests, lint, format, coverage gate, hardened CI.
 
 ## Structure
 
-- `plugin/feedparser.{h,cpp}`: pure parsing, per-day expansion, and the
-  publish diff (`diffPublished`). No Qt plugin machinery, no network.
-  Everything with a testable rule lives here.
-- `plugin/homefeedevents.{h,cpp,json}`: the Qt plugin. Config, fetch timer,
-  emitting the diff to the clock model, `ShowEventInterface`.
-- `plugin/CMakeLists.txt`: `homefeedparser` static library plus the
-  `homefeedevents` plugin installed to `plasmacalendarplugins/`.
+- `plugin/feedparser.{h,cpp}`: pure parsing, per-day expansion, the
+  publish diff (`diffPublished`), and the widget's `nextEvent` and
+  `whenLabel` rules. No Qt plugin machinery, no network. Everything with a
+  testable rule lives here.
+- `plugin/feedsource.{h,cpp}`: `FeedSource`, shared by the plugin and the
+  applet. Reads the rc file, watches it, and fetches on a timer.
+- `plugin/homefeedevents.{h,cpp,json}`: the Qt plugin. Emits the diff to
+  the clock model, `ShowEventInterface`.
+- `plugin/CMakeLists.txt`: `homefeedparser` and `homefeedsource` static
+  libraries plus the `homefeedevents` plugin installed to
+  `plasmacalendarplugins/`.
+- `applet/`: `plasma_add_applet` target `io.github.clearcmos.nextevent`.
+  `nextevent.{h,cpp}` is the `NextEvent` QML type (a `FeedSource` plus a
+  minute tick); `main.qml` is the panel view; `metadata.json` is embedded.
 - `tests/feedparsertest.cpp`, `tests/fixtures/feed.json`: QTest suite for the
-  parser and the diff.
+  parser, the diff, and the next-event rules.
+- `tests/feedsourcetest.cpp`: `FeedSource` against `file://` fixtures, rc file
+  under the build tree's `XDG_CONFIG_HOME`.
 - `tests/pluginloadtest.cpp`: loads the built `.so` through `KPluginMetaData`
   and `QPluginLoader` (plasma-workspace's path) with an empty
   `XDG_CONFIG_HOME`; checks metadata, both interfaces, and offline no-ops.
+  Reads the applet's metadata without loading it.
 - `PKGBUILD`: Arch package, git source, version derived from `project()`.
 - `.github/workflows/ci.yml`: Arch container job; see Commands.
 
@@ -36,13 +47,14 @@ cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON -DCMAKE
 cmake --build build
 ctest --test-dir build --output-on-failure
 cmake --build build --target clang-format
-cppcheck --library=qt --enable=warning,style,performance,portability --error-exitcode=1 --suppress=missingIncludeSystem --inline-suppr -I plugin plugin tests
+cppcheck --library=qt --enable=warning,style,performance,portability --error-exitcode=1 --suppress=missingIncludeSystem --inline-suppr -I plugin -I applet plugin applet tests
 gcovr --root . --filter 'plugin/feedparser\.cpp' --fail-under-line 90 --print-summary build
 ```
 
 CI runs exactly these, in this order, then checks the install layout
 (`DESTDIR=stage cmake --install build` must produce
-`usr/lib/qt6/plugins/plasmacalendarplugins/homefeedevents.so`) and runs
+`usr/lib/qt6/plugins/plasmacalendarplugins/homefeedevents.so` and
+`usr/lib/qt6/plugins/plasma/applets/io.github.clearcmos.nextevent.so`) and runs
 `namcap PKGBUILD`. Run the format target before committing; CI fails on a diff.
 
 ## Conventions
@@ -50,8 +62,9 @@ CI runs exactly these, in this order, then checks the install layout
 - `KDECompilerSettings` is in effect: `QT_NO_CAST_FROM_ASCII`,
   `QT_NO_KEYWORDS`, C++20. Use `u"..."_s`, `"..."_L1`, `Q_EMIT`, `Q_SIGNALS`,
   `Q_SLOTS`.
-- Keep `homefeedevents.cpp` thin. Any rule about dates, spans, or document
-  shape belongs in `feedparser.cpp` where the tests can reach it.
+- Keep `homefeedevents.cpp` and `nextevent.cpp` thin. Any rule about dates,
+  spans, labels, or document shape belongs in `feedparser.cpp` where the
+  tests can reach it.
 - Tests pin `TZ=UTC` through a CTest property and assert it in
   `initTestCase`. Fixture timestamps that test zone conversion use non-UTC
   offsets on purpose.
@@ -65,11 +78,16 @@ CI runs exactly these, in this order, then checks the install layout
 - `feedparser.cpp`: covered by `feedparsertest`, gated at 90 percent lines.
   Any new rule about dates, spans, document shape, or what to emit goes here
   with a test, never into the plugin file.
+- `feedsource.cpp`: covered by `feedsourcetest` (fetch, no URL, failed
+  fetch, rejected document). `KConfigWatcher` reload is exempt: it needs a
+  session bus and a notifying writer.
 - `homefeedevents.cpp`: covered structurally by `pluginloadtest` (metadata,
-  loadability, both interfaces, unconfigured no-ops). The remaining paths
-  (network reply handling, `KConfigWatcher` reload, live emission into
-  plasmashell) are exempt: they need a live endpoint and a running shell.
-  Verified manually by installing and enabling the plugin in the clock.
+  loadability, both interfaces, unconfigured no-ops). Live emission into
+  plasmashell is exempt. Verified manually by installing and enabling the
+  plugin in the clock.
+- `applet/`: metadata covered by `pluginloadtest`. `nextevent.cpp` and
+  `main.qml` are exempt: they need a running plasmashell. Verified manually
+  by adding the widget to a panel.
 
 ## Changelog and updates
 
@@ -121,3 +139,17 @@ CI runs exactly these, in this order, then checks the install layout
   plasmashell does; the test now pins that and the two interfaces.
 - 2026-08-27: Recorded the unpinned Arch CI image as a decision rather than a
   gap (see Changelog and updates).
+- 2026-10-18: Added the Next Event panel applet in this repo rather than a
+  separate one. It reads the same rc file and feed, and reuses the parser.
+  The fetch, timer, and rc watching moved out of the plugin into
+  `FeedSource` so both share one implementation; the plugin keeps its
+  publishing contract unchanged.
+- 2026-10-18: A timed event stays "next" until it ends, so a started meeting
+  is still on screen to join. An all-day event counts only before its first
+  day begins, because counting it all day would hide that day's timed events.
+- 2026-10-18: The applet is compiled (`plasma_add_applet`) instead of a QML
+  package, so the selection and label rules live in tested C++ and the
+  widget shares `FeedSource` with the plugin.
+- 2026-10-18: `main.qml` sets an empty `fullRepresentation`. Without one,
+  plasmashell loaded the applet but never built its compact view, so the
+  panel slot stayed blank with no log line. Found only on a live panel.

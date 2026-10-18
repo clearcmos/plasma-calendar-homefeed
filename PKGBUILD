@@ -1,11 +1,11 @@
 pkgname=plasma-calendar-homefeed
-pkgdesc='Plasma 6 digital clock calendar plugin that shows events from a self-hosted JSON feed'
+pkgdesc='Plasma 6 digital clock calendar plugin and next-event panel widget for a self-hosted JSON feed'
 pkgver=0.1.0.r0.g0000000
 pkgrel=1
 arch=('x86_64')
 url='https://github.com/clearcmos/plasma-calendar-homefeed'
 license=('MIT')
-depends=(qt6-base kconfig kcoreaddons kdeclarative plasma-workspace)
+depends=(qt6-base qt6-declarative kconfig kcoreaddons kdeclarative libplasma plasma-workspace)
 makedepends=(git cmake ninja extra-cmake-modules)
 source=("$pkgname::git+https://github.com/clearcmos/plasma-calendar-homefeed.git")
 sha256sums=('SKIP')

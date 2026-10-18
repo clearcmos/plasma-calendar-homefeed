@@ -46,6 +46,45 @@ bool parseAllDay(const QJsonObject &object, EventData &event)
     return true;
 }
 
+// Whether `event` is still a candidate for "next" at `now`; see nextEvent().
+bool stillAhead(const EventData &event, const QDateTime &now)
+{
+    return event.isAllDay() ? event.startDateTime() > now : event.endDateTime() > now;
+}
+
+bool comesFirst(const EventData &a, const EventData &b)
+{
+    if (a.startDateTime() != b.startDateTime()) {
+        return a.startDateTime() < b.startDateTime();
+    }
+    if (a.endDateTime() != b.endDateTime()) {
+        return a.endDateTime() < b.endDateTime();
+    }
+    return a.uid() < b.uid();
+}
+
+QString dayLabel(const QDate &day, const QDate &today, const QLocale &locale)
+{
+    const qint64 ahead = today.daysTo(day);
+    if (ahead == 0) {
+        return {};
+    }
+    if (ahead == 1) {
+        return u"Tomorrow"_s;
+    }
+    if (ahead > 1 && ahead < 7) {
+        return locale.dayName(day.dayOfWeek(), QLocale::ShortFormat);
+    }
+    return locale.toString(day, u"MMM d"_s);
+}
+
+QString dayAndTime(const QDateTime &moment, const QDate &today, const QLocale &locale)
+{
+    const QString time = locale.toString(moment.time(), QLocale::ShortFormat);
+    const QString day = dayLabel(moment.date(), today, locale);
+    return day.isEmpty() ? time : day + u' ' + time;
+}
+
 bool parseTimed(const QJsonObject &object, EventData &event)
 {
     const QDateTime start = QDateTime::fromString(stringOrEmpty(object, "start"_L1), Qt::ISODateWithMs);
@@ -186,6 +225,34 @@ PublishDiff diffPublished(const QMultiHash<QDate, EventData> &previous, const QM
     }
     diff.removedUids.sort();
     return diff;
+}
+
+std::optional<FeedEvent> nextEvent(const QList<FeedEvent> &events, const QDateTime &now)
+{
+    const FeedEvent *best = nullptr;
+    for (const FeedEvent &event : events) {
+        if (stillAhead(event.data, now) && (!best || comesFirst(event.data, best->data))) {
+            best = &event;
+        }
+    }
+    if (!best) {
+        return std::nullopt;
+    }
+    return *best;
+}
+
+QString whenLabel(const EventData &event, const QDateTime &now, const QLocale &locale)
+{
+    const QDate today = now.toLocalTime().date();
+    if (event.isAllDay()) {
+        const QString day = dayLabel(event.startDateTime().date(), today, locale);
+        return day.isEmpty() ? u"all day"_s : day + u", all day"_s;
+    }
+    const QDateTime start = event.startDateTime().toLocalTime();
+    if (start <= now) {
+        return u"now, until "_s + dayAndTime(event.endDateTime().toLocalTime(), today, locale);
+    }
+    return dayAndTime(start, today, locale);
 }
 
 bool sameEvent(const EventData &a, const EventData &b)

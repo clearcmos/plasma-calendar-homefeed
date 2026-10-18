@@ -5,11 +5,15 @@
 
 #include <QByteArray>
 #include <QDate>
+#include <QDateTime>
 #include <QList>
+#include <QLocale>
 #include <QMultiHash>
 #include <QString>
 #include <QStringList>
 #include <QUrl>
+
+#include <optional>
 
 namespace HomeFeed
 {
@@ -62,5 +66,16 @@ struct PublishDiff {
 // under every day it now touches; eventModified() is deliberately not used
 // because it replaces in place and cannot move an event between days.
 PublishDiff diffPublished(const QMultiHash<QDate, CalendarEvents::EventData> &previous, const QMultiHash<QDate, CalendarEvents::EventData> &current);
+
+// The event to show as "next" at `now`. A timed event counts until it ends, so
+// a meeting that has started stays shown. An all-day event counts only until
+// its first day begins, so on that day it does not hide the timed events.
+// The earliest start wins; ties go to the earlier end, then the uid.
+std::optional<FeedEvent> nextEvent(const QList<FeedEvent> &events, const QDateTime &now);
+
+// When `event` happens relative to `now`, for a one-line label: "now, until
+// 1:30 PM" while it runs, else a day ("Tomorrow", a weekday within the week,
+// then the date; nothing for today) and the start time, or "all day".
+QString whenLabel(const CalendarEvents::EventData &event, const QDateTime &now, const QLocale &locale);
 
 }

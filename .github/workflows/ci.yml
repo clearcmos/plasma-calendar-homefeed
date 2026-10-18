@@ -22,7 +22,7 @@ jobs:
     container: archlinux:base-devel
     steps:
       - name: Install toolchain
-        run: pacman -Syu --noconfirm --needed git cmake ninja extra-cmake-modules qt6-base kconfig kcoreaddons kdeclarative clang cppcheck gcovr namcap
+        run: pacman -Syu --noconfirm --needed git cmake ninja extra-cmake-modules qt6-base qt6-declarative kconfig kcoreaddons kdeclarative libplasma clang cppcheck gcovr namcap
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -35,10 +35,10 @@ jobs:
         run: |
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
           cmake --build build --target clang-format
-          git diff --exit-code -- plugin tests
+          git diff --exit-code -- plugin applet tests
 
       - name: Static analysis
-        run: cppcheck --library=qt --enable=warning,style,performance,portability --error-exitcode=1 --suppress=missingIncludeSystem --inline-suppr -I plugin plugin tests
+        run: cppcheck --library=qt --enable=warning,style,performance,portability --error-exitcode=1 --suppress=missingIncludeSystem --inline-suppr -I plugin -I applet plugin applet tests
 
       - name: Build
         run: cmake --build build
@@ -53,6 +53,7 @@ jobs:
         run: |
           DESTDIR="$PWD/stage" cmake --install build
           test -f stage/usr/lib/qt6/plugins/plasmacalendarplugins/homefeedevents.so
+          test -f stage/usr/lib/qt6/plugins/plasma/applets/io.github.clearcmos.nextevent.so
 
       - name: PKGBUILD lint
         run: namcap PKGBUILD

@@ -1,0 +1,18 @@
+{
+    "KPackageStructure": "Plasma/Applet",
+    "KPlugin": {
+        "Authors": [
+            {
+                "Email": "clear.cmos@outlook.com",
+                "Name": "clearcmos"
+            }
+        ],
+        "Category": "Date and Time",
+        "Description": "Show the next event from a self-hosted JSON calendar feed in the panel",
+        "Icon": "view-calendar-upcoming-events",
+        "License": "MIT",
+        "Name": "Next Event",
+        "Version": "0.2.0"
+    },
+    "X-Plasma-API-Minimum-Version": "6.0"
+}

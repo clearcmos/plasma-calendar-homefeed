@@ -1,9 +1,11 @@
 # plasma-calendar-homefeed
 
-Calendar events plugin for the KDE Plasma 6 digital clock. It reads a JSON
-event feed over HTTP(S) and shows the events in the clock's calendar popup,
-alongside the built-in holidays. No Akonadi and no provider credentials on the
-desktop: whatever produces the feed owns the upstream calendar access.
+Calendar events plugin for the KDE Plasma 6 digital clock, plus a panel
+widget that shows the next event. Both read a JSON event feed over HTTP(S):
+the plugin shows the events in the clock's calendar popup, alongside the
+built-in holidays, and the widget shows the next event's title and time in
+the panel. No Akonadi and no provider credentials on the desktop: whatever
+produces the feed owns the upstream calendar access.
 
 ## Why
 
@@ -27,6 +29,24 @@ this plugin is the missing piece between that file and the clock.
   warning in the `org.clearcmos.plasma.homefeed` category.
 - Where the clock exposes it, opening an event follows the event's `url`
   (`ShowEventInterface`).
+
+## Next Event widget
+
+A panel widget (`io.github.clearcmos.nextevent`, "Next Event") that shows one
+line: the next event's title, then when it happens. It reads the same rc file
+and fetches on the same interval as the clock plugin.
+
+- A timed event stays shown until it ends, as "now, until 1:30 PM", so a
+  meeting that has started is still there to join.
+- An all-day event counts as next only until its first day begins ("Thu, all
+  day"); on the day itself it steps aside for that day's timed events.
+- The time is in the desktop's locale. The day reads nothing for today, then
+  "Tomorrow", the weekday within the coming week, then the date ("Oct 26").
+- The label is re-evaluated after every fetch and at each minute boundary.
+  The tooltip repeats the time and adds the location.
+- Titles wider than 40 grid units are elided.
+
+Add it with right-click on the panel, Add or Manage Widgets, "Next Event".
 
 ## Feed format
 
@@ -87,17 +107,18 @@ Arch Linux:
 git clone https://github.com/clearcmos/plasma-calendar-homefeed.git && cd plasma-calendar-homefeed && makepkg -sri
 ```
 
-This installs `/usr/lib/qt6/plugins/plasmacalendarplugins/homefeedevents.so`.
+This installs `/usr/lib/qt6/plugins/plasmacalendarplugins/homefeedevents.so`
+and `/usr/lib/qt6/plugins/plasma/applets/io.github.clearcmos.nextevent.so`.
 
-Anywhere else, with ECM, Qt 6 (Core, Gui, Network), KF6 Config, CoreAddons,
-and Declarative development packages installed:
+Anywhere else, with ECM, Qt 6 (Core, Gui, Network, Qml, Quick), KF6 Config,
+CoreAddons, and Declarative, and libplasma development packages installed:
 
 ```bash
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr && cmake --build build && sudo cmake --install build
 ```
 
-plasma-workspace scans for plugins when plasmashell starts, so after the first
-install restart it (`plasmashell --replace &`) or log out and back in.
+plasmashell scans for plugins and widgets when it starts, so after an install
+restart it (`plasmashell --replace &`) or log out and back in.
 
 ## Configure
 
@@ -115,8 +136,9 @@ EventColor=#3daee9
 - `RefreshMinutes` (default 5, minimum 1): polling interval.
 - `EventColor` (optional): color for events whose feed entry has no `color`.
 
-Changes to the file are picked up live. Then enable the plugin: right-click
-the clock, Configure Digital Clock, Calendar, tick "Home feed".
+Changes to the file are picked up live by both the plugin and the widget.
+Then enable the plugin: right-click the clock, Configure Digital Clock,
+Calendar, tick "Home feed".
 
 ## Development
 
@@ -125,17 +147,20 @@ cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON -DCMAKE
 cmake --build build
 ctest --test-dir build --output-on-failure
 cmake --build build --target clang-format
-cppcheck --library=qt --enable=warning,style,performance,portability --error-exitcode=1 --suppress=missingIncludeSystem --inline-suppr -I plugin plugin tests
+cppcheck --library=qt --enable=warning,style,performance,portability --error-exitcode=1 --suppress=missingIncludeSystem --inline-suppr -I plugin -I applet plugin applet tests
 gcovr --root . --filter 'plugin/feedparser\.cpp' --fail-under-line 90 --print-summary build
 ```
 
 The `clang-format` target rewrites sources in the KDE style shipped with ECM;
-CI runs the same target and fails on any resulting diff. Two test binaries
-run under CTest: `feedparsertest` covers parsing, per-day expansion, and the
-refresh diff (with `TZ=UTC`, which it asserts, because day assignment depends
-on the zone); `pluginloadtest` loads the built `.so` the way plasmashell does
-and checks its metadata and interfaces, with an empty `XDG_CONFIG_HOME` so it
-never touches the network.
+CI runs the same target and fails on any resulting diff. Three test binaries
+run under CTest: `feedparsertest` covers parsing, per-day expansion, the
+refresh diff, and the widget's next-event and label rules (with `TZ=UTC`,
+which it asserts, because day assignment depends on the zone);
+`feedsourcetest` drives the shared fetcher against `file://` fixtures with its
+rc file in the build tree; `pluginloadtest` loads the built plugin the way
+plasmashell does and checks its metadata and interfaces, and reads the
+widget's metadata, with an empty `XDG_CONFIG_HOME` so it never touches the
+network.
 
 To see the plugin's log while it runs inside plasmashell:
 
@@ -145,8 +170,10 @@ QT_LOGGING_RULES="org.clearcmos.plasma.homefeed.debug=true" plasmashell --replac
 
 ## Limitations
 
-- No settings page in the clock's configuration dialog; the rc file is the
-  only configuration.
+- No settings page in the clock's configuration dialog or the widget; the rc
+  file is the only configuration.
+- The widget's own words ("Tomorrow", "now, until", "all day") are English;
+  only weekday and month names and the time follow the locale.
 - No authentication for the feed URL. It is meant for LAN or VPN-only
   endpoints.
 - Events outside the feed's window are simply absent.

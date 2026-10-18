@@ -43,6 +43,19 @@ private Q_SLOTS:
         QVERIFY(!metaData.rawData().value("KPlugin"_L1).toObject().contains("Id"_L1));
     }
 
+    void appletMetadataLetsPlasmaListIt()
+    {
+        // Read only: instantiating the applet needs a running plasmashell.
+        const KPluginMetaData metaData(QStringLiteral(APPLET_PATH));
+        QVERIFY(metaData.isValid());
+        QCOMPARE(metaData.pluginId(), u"io.github.clearcmos.nextevent"_s);
+        QCOMPARE(metaData.name(), u"Next Event"_s);
+        QCOMPARE(metaData.value(u"KPackageStructure"_s), u"Plasma/Applet"_s);
+        QCOMPARE(metaData.value(u"X-Plasma-API-Minimum-Version"_s), u"6.0"_s);
+        QVERIFY(!metaData.iconName().isEmpty());
+        QVERIFY(!metaData.rawData().value("KPlugin"_L1).toObject().contains("Id"_L1));
+    }
+
     void loadsAndImplementsBothInterfaces()
     {
         QPluginLoader loader(QStringLiteral(PLUGIN_PATH));

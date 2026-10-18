@@ -2,6 +2,7 @@
 #include "feedparser.h"
 
 #include <QFile>
+#include <QLocale>
 #include <QSet>
 #include <QTest>
 #include <QTimeZone>
@@ -33,6 +34,39 @@ const FeedEvent *find(const ParseResult &result, const QString &uid)
     return it == result.events.cend() ? nullptr : &*it;
 }
 
+FeedEvent timed(const QString &uid, const QDateTime &start, const QDateTime &end)
+{
+    EventData data;
+    data.setUid(uid);
+    data.setTitle(uid);
+    data.setStartDateTime(start);
+    data.setEndDateTime(end);
+    data.setIsAllDay(false);
+    return {data, QUrl()};
+}
+
+FeedEvent allDay(const QString &uid, const QDate &first, const QDate &last)
+{
+    EventData data;
+    data.setUid(uid);
+    data.setTitle(uid);
+    data.setStartDateTime(first.startOfDay());
+    data.setEndDateTime(last.endOfDay());
+    data.setIsAllDay(true);
+    return {data, QUrl()};
+}
+
+QDateTime at(int day, int hour, int minute = 0)
+{
+    return QDateTime(QDate(2026, 10, day), QTime(hour, minute), QTimeZone::UTC);
+}
+
+QString nextUid(const QList<FeedEvent> &events, const QDateTime &now)
+{
+    const std::optional<FeedEvent> next = HomeFeed::nextEvent(events, now);
+    return next ? next->data.uid() : u"none"_s;
+}
+
 QList<QDate> days(const ParseResult &result, const QString &uid)
 {
     const FeedEvent *event = find(result, uid);
@@ -43,6 +77,8 @@ QList<QDate> days(const ParseResult &result, const QString &uid)
 }
 
 }
+
+Q_DECLARE_METATYPE(HomeFeed::FeedEvent)
 
 class FeedParserTest : public QObject
 {
@@ -266,6 +302,87 @@ private Q_SLOTS:
         copy = event->data;
         copy.setEventColor(u"#000000"_s);
         QVERIFY(!HomeFeed::sameEvent(event->data, copy));
+    }
+
+    void nextEventKeepsAMeetingUntilItEnds()
+    {
+        const QList<FeedEvent> events{timed(u"later"_s, at(19, 15), at(19, 16)), timed(u"meeting"_s, at(19, 13), at(19, 13, 30))};
+        QCOMPARE(nextUid(events, at(19, 9)), u"meeting"_s);
+        QCOMPARE(nextUid(events, at(19, 13, 10)), u"meeting"_s);
+        QCOMPARE(nextUid(events, at(19, 13, 30)), u"later"_s);
+        QCOMPARE(nextUid(events, at(19, 16)), u"none"_s);
+    }
+
+    void nextEventShowsAllDayOnlyBeforeItsDay()
+    {
+        const QList<FeedEvent> events{timed(u"call"_s, at(22, 10), at(22, 10, 30)), allDay(u"clinic"_s, QDate(2026, 10, 22), QDate(2026, 10, 22))};
+        QCOMPARE(nextUid(events, at(21, 20)), u"clinic"_s);
+        // On its own day the all-day event steps aside for the timed ones.
+        QCOMPARE(nextUid(events, at(22, 0)), u"call"_s);
+        QCOMPARE(nextUid(events, at(22, 8)), u"call"_s);
+    }
+
+    void nextEventOfNothingIsNothing()
+    {
+        QCOMPARE(nextUid({}, at(19, 9)), u"none"_s);
+    }
+
+    void nextEventBreaksTiesOnEndThenUid()
+    {
+        const QList<FeedEvent> events{timed(u"long"_s, at(19, 13), at(19, 15)),
+                                      timed(u"b-short"_s, at(19, 13), at(19, 14)),
+                                      timed(u"a-short"_s, at(19, 13), at(19, 14))};
+        QCOMPARE(nextUid(events, at(19, 9)), u"a-short"_s);
+    }
+
+    void whenLabelNamesTheDayAndTime_data()
+    {
+        QTest::addColumn<FeedEvent>("event");
+        QTest::addColumn<QDateTime>("now");
+        QTest::addColumn<QString>("dayPart");
+        QTest::addColumn<QTime>("time");
+
+        const QDateTime monday = at(19, 9);
+        QTest::newRow("today") << timed(u"e"_s, at(19, 13), at(19, 14)) << monday << QString() << QTime(13, 0);
+        QTest::newRow("tomorrow") << timed(u"e"_s, at(20, 15), at(20, 16)) << monday << u"Tomorrow "_s << QTime(15, 0);
+        QTest::newRow("this week") << timed(u"e"_s, at(22, 10), at(22, 11)) << monday << u"Thu "_s << QTime(10, 0);
+        QTest::newRow("six days") << timed(u"e"_s, at(25, 10), at(25, 11)) << monday << u"Sun "_s << QTime(10, 0);
+        QTest::newRow("a week out") << timed(u"e"_s, at(26, 13), at(26, 14)) << monday << u"Oct 26 "_s << QTime(13, 0);
+        QTest::newRow("running") << timed(u"e"_s, at(19, 13), at(19, 13, 30)) << at(19, 13, 10) << u"now, until "_s << QTime(13, 30);
+        QTest::newRow("running past midnight") << timed(u"e"_s, at(19, 23), at(20, 1)) << at(19, 23, 30) << u"now, until Tomorrow "_s << QTime(1, 0);
+        // 13:00 at UTC-4 is 17:00 in the test's UTC zone.
+        const QDateTime offsetStart = QDateTime::fromString(u"2026-10-19T13:00:00-04:00"_s, Qt::ISODate);
+        QTest::newRow("converted to local") << timed(u"e"_s, offsetStart, offsetStart.addSecs(1800)) << monday << QString() << QTime(17, 0);
+    }
+
+    void whenLabelNamesTheDayAndTime()
+    {
+        QFETCH(FeedEvent, event);
+        QFETCH(QDateTime, now);
+        QFETCH(QString, dayPart);
+        QFETCH(QTime, time);
+        // The time half comes from the locale itself, which decides the AM/PM
+        // spacing; the rules under test are the day words.
+        const QLocale locale(QLocale::English, QLocale::UnitedStates);
+        QCOMPARE(HomeFeed::whenLabel(event.data, now, locale), dayPart + locale.toString(time, QLocale::ShortFormat));
+    }
+
+    void whenLabelForAllDayEvents_data()
+    {
+        QTest::addColumn<QDate>("day");
+        QTest::addColumn<QString>("expected");
+        QTest::newRow("today") << QDate(2026, 10, 19) << u"all day"_s;
+        QTest::newRow("tomorrow") << QDate(2026, 10, 20) << u"Tomorrow, all day"_s;
+        QTest::newRow("this week") << QDate(2026, 10, 22) << u"Thu, all day"_s;
+        QTest::newRow("later") << QDate(2026, 11, 2) << u"Nov 2, all day"_s;
+    }
+
+    void whenLabelForAllDayEvents()
+    {
+        QFETCH(QDate, day);
+        QFETCH(QString, expected);
+        const QLocale locale(QLocale::English, QLocale::UnitedStates);
+        QCOMPARE(HomeFeed::whenLabel(allDay(u"e"_s, day, day).data, at(19, 9), locale), expected);
     }
 
 private:

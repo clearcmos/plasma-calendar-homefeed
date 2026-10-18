@@ -2,27 +2,20 @@
 #pragma once
 
 #include "feedparser.h"
+#include "feedsource.h"
 
 #include <CalendarEvents/CalendarEventsPlugin>
-
-#include <KConfigGroup>
-#include <KConfigWatcher>
-#include <KSharedConfig>
 
 #include <QDate>
 #include <QHash>
 #include <QList>
 #include <QMultiHash>
-#include <QNetworkAccessManager>
 #include <QObject>
 #include <QString>
-#include <QTimer>
 #include <QUrl>
 
-class QNetworkReply;
-
-// Calendar events plugin for the Plasma digital clock. Periodically fetches a
-// JSON feed over HTTP(S) and republishes its events to the clock's DaysModel.
+// Calendar events plugin for the Plasma digital clock. Republishes the events
+// FeedSource fetches to the clock's DaysModel.
 //
 // Publishing contract (mirrors plasma-workspace's holidays plugin): the model
 // clears its store and calls loadEventsForDateRange() whenever the visible
@@ -43,21 +36,10 @@ public:
     bool showEvent(const QString &uid) override;
 
 private:
-    void readSettings(const KConfigGroup &group);
-    void refresh();
-    void onReplyFinished(QNetworkReply *reply);
     void applyEvents(const QList<HomeFeed::FeedEvent> &events);
     void forgetPublished();
 
-    KSharedConfig::Ptr m_config;
-    KConfigWatcher::Ptr m_configWatcher;
-    QUrl m_feedUrl;
-    QString m_defaultColor;
-    bool m_warnedMissingUrl = false;
-
-    QNetworkAccessManager m_network;
-    QNetworkReply *m_pendingReply = nullptr;
-    QTimer m_refreshTimer;
+    HomeFeed::FeedSource m_source;
 
     bool m_fetched = false;
     QList<HomeFeed::FeedEvent> m_events;
