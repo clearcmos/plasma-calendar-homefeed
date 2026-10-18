@@ -8,10 +8,12 @@
 #include <QObject>
 #include <QString>
 #include <QTimer>
+#include <QVariantList>
 #include <QtQmlIntegration/qqmlintegration.h>
 
-// The feed's next event for the panel applet, re-evaluated on every fetch and
-// at each minute boundary so "now" and the day words stay current.
+// The feed's next event for the panel applet, and the events after it for its
+// popup, re-evaluated on every fetch and at each minute boundary so "now",
+// "leave now", and the day words stay current.
 class NextEvent : public QObject
 {
     Q_OBJECT
@@ -21,6 +23,11 @@ class NextEvent : public QObject
     Q_PROPERTY(QString title READ title NOTIFY changed)
     Q_PROPERTY(QString when READ when NOTIFY changed)
     Q_PROPERTY(QString location READ location NOTIFY changed)
+    // [{text, late}] for the panel line.
+    Q_PROPERTY(QVariantList departures READ departures NOTIFY changed)
+    // [{heading, time, title, lines, departures: [{text, detail, late}]}];
+    // heading is set only on the first row of each day.
+    Q_PROPERTY(QVariantList upcoming READ upcoming NOTIFY changed)
 
 public:
     explicit NextEvent(QObject *parent = nullptr);
@@ -29,6 +36,8 @@ public:
     const QString &title() const;
     const QString &when() const;
     const QString &location() const;
+    const QVariantList &departures() const;
+    const QVariantList &upcoming() const;
 
 Q_SIGNALS:
     void changed();
@@ -45,4 +54,6 @@ private:
     QString m_title;
     QString m_when;
     QString m_location;
+    QVariantList m_departures;
+    QVariantList m_upcoming;
 };

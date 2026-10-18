@@ -42,7 +42,7 @@ FeedEvent timed(const QString &uid, const QDateTime &start, const QDateTime &end
     data.setStartDateTime(start);
     data.setEndDateTime(end);
     data.setIsAllDay(false);
-    return {data, QUrl()};
+    return {data, QUrl(), {}};
 }
 
 FeedEvent allDay(const QString &uid, const QDate &first, const QDate &last)
@@ -53,7 +53,7 @@ FeedEvent allDay(const QString &uid, const QDate &first, const QDate &last)
     data.setStartDateTime(first.startOfDay());
     data.setEndDateTime(last.endOfDay());
     data.setIsAllDay(true);
-    return {data, QUrl()};
+    return {data, QUrl(), {}};
 }
 
 QDateTime at(int day, int hour, int minute = 0)
@@ -248,7 +248,7 @@ private Q_SLOTS:
         fresh.setStartDateTime(QDate(2026, 9, 20).startOfDay());
         fresh.setEndDateTime(QDate(2026, 9, 20).endOfDay());
         fresh.setIsAllDay(true);
-        events.append({fresh, QUrl()});
+        events.append({fresh, QUrl(), {}});
 
         const HomeFeed::PublishDiff diff = HomeFeed::diffPublished(previous, HomeFeed::eventsByDay(events, kFrom, kTo));
 
@@ -383,6 +383,70 @@ private Q_SLOTS:
         QFETCH(QString, expected);
         const QLocale locale(QLocale::English, QLocale::UnitedStates);
         QCOMPARE(HomeFeed::whenLabel(allDay(u"e"_s, day, day).data, at(19, 9), locale), expected);
+    }
+
+    void departuresParseAndDropMalformedEntries()
+    {
+        const FeedEvent *event = find(m_result, u"timed-single"_s);
+        QVERIFY(event);
+        QCOMPARE(event->departures.size(), 2);
+        QCOMPARE(event->departures.at(0).mode, u"Bus"_s);
+        QCOMPARE(event->departures.at(0).leave.toUTC(), QDateTime(QDate(2026, 8, 25), QTime(13, 10), QTimeZone::UTC));
+        QCOMPARE(event->departures.at(0).detail, u"40 min"_s);
+        QCOMPARE(event->departures.at(1).detail, QString());
+        QVERIFY(find(m_result, u"allday-single"_s)->departures.isEmpty());
+    }
+
+    void departuresShowOnlyBeforeTheEventStarts()
+    {
+        FeedEvent event = timed(u"dentist"_s, at(19, 14), at(19, 15));
+        event.departures = {{u"Bus"_s, at(19, 13, 10), u"40 min"_s}, {u"Car"_s, at(19, 13, 35), QString()}};
+        const QLocale locale(QLocale::English, QLocale::UnitedStates);
+        const QString ten = locale.toString(QTime(13, 10), QLocale::ShortFormat);
+
+        QCOMPARE(HomeFeed::pendingDepartures(event, at(19, 9)).size(), 2);
+        QCOMPARE(HomeFeed::departureLabel(event.departures.at(0), at(19, 9), locale), u"Bus leave "_s + ten);
+        // Past its leave time but before the event: still shown, as "now".
+        QCOMPARE(HomeFeed::pendingDepartures(event, at(19, 13, 20)).size(), 2);
+        QCOMPARE(HomeFeed::departureLabel(event.departures.at(0), at(19, 13, 20), locale), u"Bus leave now"_s);
+        QVERIFY(HomeFeed::pendingDepartures(event, at(19, 14)).isEmpty());
+    }
+
+    void upcomingEventsAreOrderedAndCapped()
+    {
+        const QList<FeedEvent> events{timed(u"c"_s, at(21, 9), at(21, 10)),
+                                      timed(u"past"_s, at(18, 9), at(18, 10)),
+                                      timed(u"a"_s, at(19, 9), at(19, 10)),
+                                      timed(u"b"_s, at(20, 9), at(20, 10))};
+        const QList<FeedEvent> upcoming = HomeFeed::upcomingEvents(events, at(19, 8), 2);
+        QCOMPARE(upcoming.size(), 2);
+        QCOMPARE(upcoming.at(0).data.uid(), u"a"_s);
+        QCOMPARE(upcoming.at(1).data.uid(), u"b"_s);
+        QCOMPARE(HomeFeed::upcomingEvents(events, at(19, 8), 10).size(), 3);
+    }
+
+    void listRowsNameTheirDayAndTime()
+    {
+        const QLocale locale(QLocale::English, QLocale::UnitedStates);
+        const QDate today(2026, 10, 19);
+        QCOMPARE(HomeFeed::dayHeading(today, today, locale), u"Today"_s);
+        QCOMPARE(HomeFeed::dayHeading(QDate(2026, 10, 20), today, locale), u"Tomorrow"_s);
+        QCOMPARE(HomeFeed::dayHeading(QDate(2026, 10, 22), today, locale), u"Thu Oct 22"_s);
+
+        const FeedEvent overnight = timed(u"e"_s, at(18, 23), at(19, 1));
+        // Started yesterday and still running: filed under today, as "now".
+        QCOMPARE(HomeFeed::listDay(overnight.data, at(19, 0, 30)), today);
+        QCOMPARE(HomeFeed::rowTimeLabel(overnight.data, at(19, 0, 30), locale), u"now"_s);
+        QCOMPARE(HomeFeed::untilLabel(overnight.data, at(19, 0, 30), locale), u"until "_s + locale.toString(QTime(1, 0), QLocale::ShortFormat));
+
+        const FeedEvent later = timed(u"e"_s, at(20, 13), at(20, 14));
+        QCOMPARE(HomeFeed::listDay(later.data, at(19, 9)), QDate(2026, 10, 20));
+        QCOMPARE(HomeFeed::rowTimeLabel(later.data, at(19, 9), locale), locale.toString(QTime(13, 0), QLocale::ShortFormat));
+        QCOMPARE(HomeFeed::untilLabel(later.data, at(19, 9), locale), QString());
+
+        const FeedEvent clinic = allDay(u"e"_s, QDate(2026, 10, 22), QDate(2026, 10, 22));
+        QCOMPARE(HomeFeed::rowTimeLabel(clinic.data, at(19, 9), locale), u"all day"_s);
+        QCOMPARE(HomeFeed::untilLabel(clinic.data, at(22, 9), locale), QString());
     }
 
 private:

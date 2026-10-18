@@ -13,8 +13,8 @@ standard: tests, lint, format, coverage gate, hardened CI.
 ## Structure
 
 - `plugin/feedparser.{h,cpp}`: pure parsing, per-day expansion, the
-  publish diff (`diffPublished`), and the widget's `nextEvent` and
-  `whenLabel` rules. No Qt plugin machinery, no network. Everything with a
+  publish diff (`diffPublished`), and the widget's selection, label, list,
+  and departure rules. No Qt plugin machinery, no network. Everything with a
   testable rule lives here.
 - `plugin/feedsource.{h,cpp}`: `FeedSource`, shared by the plugin and the
   applet. Reads the rc file, watches it, and fetches on a timer.
@@ -25,7 +25,10 @@ standard: tests, lint, format, coverage gate, hardened CI.
   `plasmacalendarplugins/`.
 - `applet/`: `plasma_add_applet` target `io.github.clearcmos.nextevent`.
   `nextevent.{h,cpp}` is the `NextEvent` QML type (a `FeedSource` plus a
-  minute tick); `main.qml` is the panel view; `metadata.json` is embedded.
+  minute tick) that hands the panel line and the popup rows to QML as
+  plain lists; `main.qml` is the panel line and the popup; `metadata.json`
+  is embedded. Lint it with `/usr/lib/qt6/bin/qmllint -I build/bin
+  applet/main.qml` after a build.
 - `tests/feedparsertest.cpp`, `tests/fixtures/feed.json`: QTest suite for the
   parser, the diff, and the next-event rules.
 - `tests/feedsourcetest.cpp`: `FeedSource` against `file://` fixtures, rc file
@@ -153,3 +156,11 @@ CI runs exactly these, in this order, then checks the install layout
 - 2026-10-18: `main.qml` sets an empty `fullRepresentation`. Without one,
   plasmashell loaded the applet but never built its compact view, so the
   panel slot stayed blank with no log line. Found only on a live panel.
+- 2026-10-18: Leave times arrive in the feed as an optional `departures`
+  list (mode, leave, detail) computed by the producer, not by the widget,
+  so no routing key or home address lives on the desktop and the widget
+  shows the same times as the producer's own dashboard. They are hidden once
+  the event starts.
+- 2026-10-18: The popup's rows come from C++ as a `QVariantList`, with the
+  day heading set only on each day's first row, rather than a ListView
+  `section`: sections need a model role, which a plain list does not have.

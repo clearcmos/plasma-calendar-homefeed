@@ -14,7 +14,14 @@
       "description": "Bring the insurance card",
       "url": "https://calendar.example/event/timed-single",
       "color": "#7986cb",
-      "series": null
+      "series": null,
+      "departures": [
+        {"mode": "Bus", "leave": "2026-08-25T13:10:00+00:00", "detail": "40 min"},
+        {"mode": "Car", "leave": "2026-08-25T13:35:00+00:00"},
+        {"mode": "", "leave": "2026-08-25T13:00:00+00:00", "detail": "no mode, dropped"},
+        {"mode": "Walk", "leave": "soon", "detail": "bad time, dropped"},
+        "not an object, dropped"
+      ]
     },
     {
       "uid": "allday-single",

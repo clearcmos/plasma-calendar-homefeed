@@ -33,7 +33,8 @@ this plugin is the missing piece between that file and the clock.
 ## Next Event widget
 
 A panel widget (`io.github.clearcmos.nextevent`, "Next Event") that shows one
-line: the next event's title, then when it happens. It reads the same rc file
+line: the next event's title, when it happens, and when to leave for it. A
+click opens a popup listing the upcoming events. It reads the same rc file
 and fetches on the same interval as the clock plugin.
 
 - A timed event stays shown until it ends, as "now, until 1:30 PM", so a
@@ -42,9 +43,15 @@ and fetches on the same interval as the clock plugin.
   day"); on the day itself it steps aside for that day's timed events.
 - The time is in the desktop's locale. The day reads nothing for today, then
   "Tomorrow", the weekday within the coming week, then the date ("Oct 26").
-- The label is re-evaluated after every fetch and at each minute boundary.
+- When the event carries `departures`, each shows after the time as "Bus
+  leave 12:05 PM", in the negative text color as "Bus leave now" once that
+  time passes, until the event starts.
+- The popup lists the next 20 events under day headings ("Today",
+  "Tomorrow", "Thu Oct 22"), each with its time, title, location, and
+  departures with their detail.
+- Everything is re-evaluated after every fetch and at each minute boundary.
   The tooltip repeats the time and adds the location.
-- Titles wider than 40 grid units are elided.
+- A line wider than 50 grid units elides the title.
 
 Add it with right-click on the panel, Add or Manage Widgets, "Next Event".
 
@@ -66,7 +73,11 @@ A JSON object with an `events` array. Everything else is informational.
       "location": "Downtown",
       "description": null,
       "url": "https://calendar.example/event/1",
-      "color": "#7986cb"
+      "color": "#7986cb",
+      "departures": [
+        {"mode": "Bus", "leave": "2026-08-25T13:05:00-04:00", "detail": "45 min"},
+        {"mode": "Car", "leave": "2026-08-25T13:30:00-04:00", "detail": "15 min drive"}
+      ]
     },
     {
       "uid": "payday-2026-08-28",
@@ -93,6 +104,10 @@ Rules:
 - Entries without a `uid` or with an unparsable `start` are skipped and
   counted; the count is logged at info level. Unknown keys are ignored.
 - `location`, `description`, `url`, and `color` may be null or absent.
+- `departures` is optional: when to leave for the event, one entry per means
+  of travel, in display order. `mode` and an RFC 3339 `leave` are required;
+  an entry missing either is dropped. `detail` is optional free text. Only
+  the widget uses them; the clock plugin ignores them.
 
 The producer is out of scope for this repository. The author's is a small
 Python script on a home server that queries the Google Calendar API with

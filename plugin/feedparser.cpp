@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 #include "feedparser.h"
 
+#include <algorithm>
+
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -85,6 +87,22 @@ QString dayAndTime(const QDateTime &moment, const QDate &today, const QLocale &l
     return day.isEmpty() ? time : day + u' ' + time;
 }
 
+QList<HomeFeed::Departure> parseDepartures(const QJsonValue &value)
+{
+    QList<HomeFeed::Departure> departures;
+    const QJsonArray entries = value.toArray();
+    for (const QJsonValue &entry : entries) {
+        const QJsonObject object = entry.toObject();
+        HomeFeed::Departure departure{stringOrEmpty(object, "mode"_L1),
+                                      QDateTime::fromString(stringOrEmpty(object, "leave"_L1), Qt::ISODateWithMs),
+                                      stringOrEmpty(object, "detail"_L1)};
+        if (!departure.mode.isEmpty() && departure.leave.isValid()) {
+            departures.append(departure);
+        }
+    }
+    return departures;
+}
+
 bool parseTimed(const QJsonObject &object, EventData &event)
 {
     const QDateTime start = QDateTime::fromString(stringOrEmpty(object, "start"_L1), Qt::ISODateWithMs);
@@ -160,7 +178,7 @@ ParseResult parseFeed(const QByteArray &document)
         data.setEventType(EventData::Event);
         data.setIsMinor(false);
 
-        result.events.append({data, QUrl(stringOrEmpty(object, "url"_L1))});
+        result.events.append({data, QUrl(stringOrEmpty(object, "url"_L1)), parseDepartures(object.value("departures"_L1))});
     }
     return result;
 }
@@ -229,16 +247,28 @@ PublishDiff diffPublished(const QMultiHash<QDate, EventData> &previous, const QM
 
 std::optional<FeedEvent> nextEvent(const QList<FeedEvent> &events, const QDateTime &now)
 {
-    const FeedEvent *best = nullptr;
-    for (const FeedEvent &event : events) {
-        if (stillAhead(event.data, now) && (!best || comesFirst(event.data, best->data))) {
-            best = &event;
-        }
-    }
-    if (!best) {
+    const QList<FeedEvent> next = upcomingEvents(events, now, 1);
+    if (next.isEmpty()) {
         return std::nullopt;
     }
-    return *best;
+    return next.first();
+}
+
+QList<FeedEvent> upcomingEvents(const QList<FeedEvent> &events, const QDateTime &now, qsizetype limit)
+{
+    QList<FeedEvent> ahead;
+    for (const FeedEvent &event : events) {
+        if (stillAhead(event.data, now)) {
+            ahead.append(event);
+        }
+    }
+    std::sort(ahead.begin(), ahead.end(), [](const FeedEvent &a, const FeedEvent &b) {
+        return comesFirst(a.data, b.data);
+    });
+    if (ahead.size() > limit) {
+        ahead.resize(limit);
+    }
+    return ahead;
 }
 
 QString whenLabel(const EventData &event, const QDateTime &now, const QLocale &locale)
@@ -250,9 +280,61 @@ QString whenLabel(const EventData &event, const QDateTime &now, const QLocale &l
     }
     const QDateTime start = event.startDateTime().toLocalTime();
     if (start <= now) {
-        return u"now, until "_s + dayAndTime(event.endDateTime().toLocalTime(), today, locale);
+        return u"now, "_s + untilLabel(event, now, locale);
     }
     return dayAndTime(start, today, locale);
+}
+
+QString untilLabel(const EventData &event, const QDateTime &now, const QLocale &locale)
+{
+    if (event.isAllDay() || event.startDateTime() > now) {
+        return {};
+    }
+    return u"until "_s + dayAndTime(event.endDateTime().toLocalTime(), now.toLocalTime().date(), locale);
+}
+
+QString rowTimeLabel(const EventData &event, const QDateTime &now, const QLocale &locale)
+{
+    if (event.isAllDay()) {
+        return u"all day"_s;
+    }
+    const QDateTime start = event.startDateTime().toLocalTime();
+    if (start <= now) {
+        return u"now"_s;
+    }
+    return locale.toString(start.time(), QLocale::ShortFormat);
+}
+
+QString dayHeading(const QDate &day, const QDate &today, const QLocale &locale)
+{
+    const qint64 ahead = today.daysTo(day);
+    if (ahead == 0) {
+        return u"Today"_s;
+    }
+    if (ahead == 1) {
+        return u"Tomorrow"_s;
+    }
+    return locale.toString(day, u"ddd MMM d"_s);
+}
+
+QDate listDay(const EventData &event, const QDateTime &now)
+{
+    return qMax(event.startDateTime().toLocalTime().date(), now.toLocalTime().date());
+}
+
+QList<Departure> pendingDepartures(const FeedEvent &event, const QDateTime &now)
+{
+    if (event.data.isAllDay() || event.data.startDateTime() <= now) {
+        return {};
+    }
+    return event.departures;
+}
+
+QString departureLabel(const Departure &departure, const QDateTime &now, const QLocale &locale)
+{
+    const QDateTime leave = departure.leave.toLocalTime();
+    const QString when = leave <= now ? u"now"_s : locale.toString(leave.time(), QLocale::ShortFormat);
+    return departure.mode + u" leave "_s + when;
 }
 
 bool sameEvent(const EventData &a, const EventData &b)

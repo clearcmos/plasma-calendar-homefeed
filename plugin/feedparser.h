@@ -18,9 +18,19 @@
 namespace HomeFeed
 {
 
+// When to set off for an event by one means of travel, as the feed's
+// producer computed it: "mode" names the means ("Bus"), "detail" says more
+// ("40 min").
+struct Departure {
+    QString mode;
+    QDateTime leave;
+    QString detail;
+};
+
 struct FeedEvent {
     CalendarEvents::EventData data;
     QUrl url;
+    QList<Departure> departures;
 };
 
 struct ParseResult {
@@ -38,7 +48,8 @@ struct ParseResult {
 
 // Parses a feed document. Timed events carry RFC 3339 timestamps; all-day
 // events carry bare dates with an exclusive end (Google and iCalendar
-// convention), which is folded into an inclusive last day here.
+// convention), which is folded into an inclusive last day here. A departure
+// without a mode or a valid leave time is dropped.
 ParseResult parseFeed(const QByteArray &document);
 
 // Inclusive local-time days an event occupies. An end at exactly midnight
@@ -73,9 +84,34 @@ PublishDiff diffPublished(const QMultiHash<QDate, CalendarEvents::EventData> &pr
 // The earliest start wins; ties go to the earlier end, then the uid.
 std::optional<FeedEvent> nextEvent(const QList<FeedEvent> &events, const QDateTime &now);
 
+// The first `limit` events that still count at `now`, in nextEvent() order.
+QList<FeedEvent> upcomingEvents(const QList<FeedEvent> &events, const QDateTime &now, qsizetype limit);
+
 // When `event` happens relative to `now`, for a one-line label: "now, until
 // 1:30 PM" while it runs, else a day ("Tomorrow", a weekday within the week,
 // then the date; nothing for today) and the start time, or "all day".
 QString whenLabel(const CalendarEvents::EventData &event, const QDateTime &now, const QLocale &locale);
+
+// "until 1:30 PM" (with a day when it ends on another) for a timed event
+// that is running at `now`; empty otherwise.
+QString untilLabel(const CalendarEvents::EventData &event, const QDateTime &now, const QLocale &locale);
+
+// A list row's time once its day is already shown: "now" while it runs, "all
+// day", or the start time.
+QString rowTimeLabel(const CalendarEvents::EventData &event, const QDateTime &now, const QLocale &locale);
+
+// Heading for a day in a list: "Today", "Tomorrow", else "Thu Oct 22".
+QString dayHeading(const QDate &day, const QDate &today, const QLocale &locale);
+
+// The day a list files `event` under: its start day, or today for an event
+// that began earlier and is still running.
+QDate listDay(const CalendarEvents::EventData &event, const QDateTime &now);
+
+// Departures still worth showing: all of them until the event starts, none
+// after, since by then it is too late to set off.
+QList<Departure> pendingDepartures(const FeedEvent &event, const QDateTime &now);
+
+// "Bus leave 12:05 PM", or "Bus leave now" once that time has passed.
+QString departureLabel(const Departure &departure, const QDateTime &now, const QLocale &locale);
 
 }
