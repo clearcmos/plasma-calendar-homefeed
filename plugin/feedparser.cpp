@@ -333,8 +333,19 @@ QList<Departure> pendingDepartures(const FeedEvent &event, const QDateTime &now)
 
 QString departureLabel(const Departure &departure, const QLocale &locale)
 {
-    const QString label = departure.mode + u' ' + locale.toString(departure.leave.toLocalTime().time(), QLocale::ShortFormat);
-    return departure.fare.isEmpty() ? label : label + u' ' + departure.fare;
+    return departure.mode + u' ' + locale.toString(departure.leave.toLocalTime().time(), QLocale::ShortFormat);
+}
+
+QString departureSummary(const Departure &departure, const QLocale &locale)
+{
+    QString summary = departureLabel(departure, locale);
+    if (!departure.fare.isEmpty()) {
+        summary += u' ' + departure.fare;
+    }
+    if (!departure.detail.isEmpty()) {
+        summary += u" · "_s + departure.detail;
+    }
+    return summary;
 }
 
 bool sameEvent(const EventData &a, const EventData &b)

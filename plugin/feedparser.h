@@ -112,7 +112,11 @@ QDate listDay(const CalendarEvents::EventData &event, const QDateTime &now);
 // after, since by then it is too late to set off.
 QList<Departure> pendingDepartures(const FeedEvent &event, const QDateTime &now);
 
-// "Bus 12:05 PM", with the fare after it when there is one ("Car 12:30 PM ~$24").
+// "Bus 12:05 PM", for the panel line.
 QString departureLabel(const Departure &departure, const QLocale &locale);
+
+// The popup's line: the label, then the fare and the detail when present
+// ("Car 12:30 PM ~$24 · 15 min drive").
+QString departureSummary(const Departure &departure, const QLocale &locale);
 
 }

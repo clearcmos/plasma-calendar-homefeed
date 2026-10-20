@@ -21,7 +21,7 @@ QVariantList departureRows(const HomeFeed::FeedEvent &event, const QDateTime &no
     for (const HomeFeed::Departure &departure : departures) {
         rows.append(QVariantMap{
             {u"text"_s, HomeFeed::departureLabel(departure, locale)},
-            {u"detail"_s, departure.detail},
+            {u"summary"_s, HomeFeed::departureSummary(departure, locale)},
             {u"late"_s, departure.leave <= now},
         });
     }

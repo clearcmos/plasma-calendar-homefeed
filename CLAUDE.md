@@ -166,4 +166,5 @@ CI runs exactly these, in this order, then checks the install layout
   `section`: sections need a model role, which a plain list does not have.
 - 2026-10-19: Departure labels dropped the word "leave" ("Bus 12:05 PM"),
   and a passed time stays a time in the negative color instead of "now".
-  An optional `fare` rides on the panel line; `detail` stays popup only.
+  An optional `fare` and the `detail` show only in the popup; the panel line
+  stays mode and time.

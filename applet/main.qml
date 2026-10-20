@@ -188,7 +188,7 @@ PlasmoidItem {
                                 delegate: PlasmaComponents.Label {
                                     required property var modelData
 
-                                    text: modelData.detail.length > 0 ? modelData.text + " · " + modelData.detail : modelData.text
+                                    text: modelData.summary
                                     color: modelData.late ? Kirigami.Theme.negativeTextColor : Kirigami.Theme.textColor
                                     font: Kirigami.Theme.smallFont
                                     wrapMode: Text.Wrap

@@ -25,7 +25,7 @@ class NextEvent : public QObject
     Q_PROPERTY(QString location READ location NOTIFY changed)
     // [{text, late}] for the panel line.
     Q_PROPERTY(QVariantList departures READ departures NOTIFY changed)
-    // [{heading, time, title, lines, departures: [{text, detail, late}]}];
+    // [{heading, time, title, lines, departures: [{text, summary, late}]}];
     // heading is set only on the first row of each day.
     Q_PROPERTY(QVariantList upcoming READ upcoming NOTIFY changed)
 
