@@ -102,6 +102,8 @@ PlasmoidItem {
                             anchors.fill: parent
                             text: "Send " + departure.modelData.mode + " trip to phone"
                             display: QQC2.AbstractButton.IconOnly
+                            // Otherwise the last one starts with a focus frame.
+                            focusPolicy: Qt.NoFocus
                             icon.name: "smartphone-symbolic"
                             icon.width: Kirigami.Units.iconSizes.small
                             icon.height: Kirigami.Units.iconSizes.small
