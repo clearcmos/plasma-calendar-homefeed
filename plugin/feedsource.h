@@ -34,6 +34,8 @@ public:
     void refresh();
     bool isFetching() const;
     const QString &eventColor() const;
+    // [General] SendCommand, the applet's send buttons; empty hides them.
+    const QString &sendCommand() const;
 
 Q_SIGNALS:
     // [General] changed: events from the old settings no longer apply. A fetch
@@ -51,6 +53,7 @@ private:
     KConfigWatcher::Ptr m_configWatcher;
     QUrl m_feedUrl;
     QString m_eventColor;
+    QString m_sendCommand;
     bool m_warnedMissingUrl = false;
 
     QNetworkAccessManager m_network;

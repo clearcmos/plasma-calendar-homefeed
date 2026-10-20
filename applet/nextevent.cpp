@@ -3,6 +3,7 @@
 
 #include <QDateTime>
 #include <QLocale>
+#include <QProcess>
 #include <QTime>
 #include <QVariantMap>
 
@@ -21,6 +22,7 @@ QVariantList departureRows(const HomeFeed::FeedEvent &event, const QDateTime &no
     for (const HomeFeed::Departure &departure : departures) {
         rows.append(QVariantMap{
             {u"text"_s, HomeFeed::departureLabel(departure, locale)},
+            {u"mode"_s, departure.mode},
             {u"summary"_s, HomeFeed::departureSummary(departure, locale)},
             {u"late"_s, departure.leave <= now},
         });
@@ -92,6 +94,23 @@ const QStringList &NextEvent::notices() const
 const QVariantList &NextEvent::upcoming() const
 {
     return m_upcoming;
+}
+
+bool NextEvent::canSend() const
+{
+    return !HomeFeed::sendCommandLine(m_source.sendCommand(), QString(), m_location).isEmpty();
+}
+
+void NextEvent::send(const QString &mode) const
+{
+    QStringList line = HomeFeed::sendCommandLine(m_source.sendCommand(), mode, m_location);
+    if (line.isEmpty()) {
+        return;
+    }
+    const QString program = line.takeFirst();
+    if (!QProcess::startDetached(program, line)) {
+        qWarning() << "Could not start SendCommand" << program;
+    }
 }
 
 void NextEvent::update()

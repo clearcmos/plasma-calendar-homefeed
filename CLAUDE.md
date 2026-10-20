@@ -172,3 +172,10 @@ CI runs exactly these, in this order, then checks the install layout
   shows under the popup's events. FeedSource reports it through its own
   `noticesFetched` signal, so the clock plugin's `eventsFetched` contract is
   unchanged.
+- 2026-10-20: Send buttons run an rc-configured `SendCommand` with the
+  departure's mode and the event's location, rather than the widget building
+  map or ride-hailing links itself. The widget stays provider-agnostic and the
+  phone transport lives in the consumer's configuration. One button per
+  departure, beside its time, so identical icons stay unambiguous. The
+  location comes from calendar invitations, so it is passed as one argument
+  with `QProcess::startDetached`, never through a shell.

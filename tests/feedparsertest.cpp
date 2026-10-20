@@ -422,6 +422,17 @@ private Q_SLOTS:
         QVERIFY(HomeFeed::pendingDepartures(event, at(19, 14)).isEmpty());
     }
 
+    void sendCommandLineAppendsModeAndLocation()
+    {
+        QCOMPARE(HomeFeed::sendCommandLine(u"/usr/bin/send-trip --to \"my phone\""_s, u"Bus"_s, u"Downtown"_s),
+                 QStringList({u"/usr/bin/send-trip"_s, u"--to"_s, u"my phone"_s, u"Bus"_s, u"Downtown"_s}));
+        // A location from someone else's invitation stays one argument.
+        QCOMPARE(HomeFeed::sendCommandLine(u"send-trip"_s, u"Car"_s, u"a'b; rm -rf ~"_s).last(), u"a'b; rm -rf ~"_s);
+        QVERIFY(HomeFeed::sendCommandLine(QString(), u"Bus"_s, u"Downtown"_s).isEmpty());
+        QVERIFY(HomeFeed::sendCommandLine(u"  "_s, u"Bus"_s, u"Downtown"_s).isEmpty());
+        QVERIFY(HomeFeed::sendCommandLine(u"send-trip"_s, u"Bus"_s, u" "_s).isEmpty());
+    }
+
     void upcomingEventsAreOrderedAndCapped()
     {
         const QList<FeedEvent> events{timed(u"c"_s, at(21, 9), at(21, 10)),

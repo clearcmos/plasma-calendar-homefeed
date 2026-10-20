@@ -23,8 +23,10 @@ class NextEvent : public QObject
     Q_PROPERTY(QString title READ title NOTIFY changed)
     Q_PROPERTY(QString when READ when NOTIFY changed)
     Q_PROPERTY(QString location READ location NOTIFY changed)
-    // [{text, late}] for the panel line.
+    // [{text, mode, late}] for the panel line.
     Q_PROPERTY(QVariantList departures READ departures NOTIFY changed)
+    // SendCommand is set and the next event has a location to send.
+    Q_PROPERTY(bool canSend READ canSend NOTIFY changed)
     // [{heading, time, title, lines, departures: [{text, summary, late}]}];
     // heading is set only on the first row of each day.
     Q_PROPERTY(QVariantList upcoming READ upcoming NOTIFY changed)
@@ -41,6 +43,10 @@ public:
     const QVariantList &departures() const;
     const QVariantList &upcoming() const;
     const QStringList &notices() const;
+    bool canSend() const;
+
+    // Runs SendCommand with `mode` and the next event's location, detached.
+    Q_INVOKABLE void send(const QString &mode) const;
 
 Q_SIGNALS:
     void changed();

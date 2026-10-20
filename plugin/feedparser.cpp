@@ -8,6 +8,7 @@
 #include <QJsonObject>
 #include <QJsonParseError>
 #include <QJsonValue>
+#include <QProcess>
 #include <QSet>
 
 using namespace Qt::StringLiterals;
@@ -353,6 +354,19 @@ QString departureSummary(const Departure &departure, const QLocale &locale)
         summary += u" · "_s + departure.detail;
     }
     return summary;
+}
+
+QStringList sendCommandLine(const QString &command, const QString &mode, const QString &location)
+{
+    if (location.trimmed().isEmpty()) {
+        return {};
+    }
+    QStringList line = QProcess::splitCommand(command);
+    if (line.isEmpty()) {
+        return {};
+    }
+    line << mode << location;
+    return line;
 }
 
 bool sameEvent(const EventData &a, const EventData &b)

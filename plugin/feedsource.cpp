@@ -55,10 +55,16 @@ const QString &FeedSource::eventColor() const
     return m_eventColor;
 }
 
+const QString &FeedSource::sendCommand() const
+{
+    return m_sendCommand;
+}
+
 void FeedSource::readSettings(const KConfigGroup &group)
 {
     m_feedUrl = QUrl(group.readEntry("FeedUrl", QString()));
     m_eventColor = group.readEntry("EventColor", QString());
+    m_sendCommand = group.readEntry("SendCommand", QString());
     const int minutes = qMax(1, group.readEntry("RefreshMinutes", kDefaultRefreshMinutes));
     m_refreshTimer.setInterval(minutes * 60 * 1000);
     m_warnedMissingUrl = false;

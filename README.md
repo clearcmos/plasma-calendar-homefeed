@@ -52,6 +52,10 @@ and fetches on the same interval as the clock plugin.
   drive"). The feed's `notices`, if any, follow under a "Notices" heading.
 - Everything is re-evaluated after every fetch and at each minute boundary.
   The tooltip repeats the time and adds the location.
+- With `SendCommand` set, each departure on the panel line gets a small
+  phone button. Clicking it runs the command with the departure's mode and
+  the event's location as two extra arguments, for example a script that
+  opens the trip on a phone. It does not open the popup.
 - A line wider than 50 grid units elides the title.
 
 Add it with right-click on the panel, Add or Manage Widgets, "Next Event".
@@ -155,6 +159,11 @@ EventColor=#3daee9
   secure scheme are refused; the transfer times out after 15 seconds.
 - `RefreshMinutes` (default 5, minimum 1): polling interval.
 - `EventColor` (optional): color for events whose feed entry has no `color`.
+- `SendCommand` (optional): a program, with arguments split the way a shell
+  would, that the widget's send buttons run as `<command> <mode>
+  <location>`. It runs directly, not through a shell, so the location
+  arrives as one argument whatever it contains. Unset, there are no send
+  buttons.
 
 Changes to the file are picked up live by both the plugin and the widget.
 Then enable the plugin: right-click the clock, Configure Digital Clock,

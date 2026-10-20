@@ -2,9 +2,11 @@
 pragma ComponentBehavior: Bound
 
 import QtQuick
+import QtQuick.Controls as QQC2
 import QtQuick.Layouts
 import org.kde.kirigami as Kirigami
 import org.kde.plasma.components as PlasmaComponents
+import org.kde.plasma.core as PlasmaCore
 import org.kde.plasma.extras as PlasmaExtras
 import org.kde.plasma.plasmoid
 import plasma.applet.io.github.clearcmos.nextevent
@@ -69,15 +71,43 @@ PlasmoidItem {
             Repeater {
                 model: next.departures
 
-                delegate: PlasmaComponents.Label {
+                delegate: RowLayout {
+                    id: departure
+
                     required property var modelData
 
-                    text: modelData.text
-                    color: modelData.late ? Kirigami.Theme.negativeTextColor : Kirigami.Theme.textColor
-                    textFormat: Text.PlainText
+                    spacing: 0
                     Layout.leftMargin: Kirigami.Units.largeSpacing
                     Layout.fillHeight: true
-                    verticalAlignment: Text.AlignVCenter
+
+                    PlasmaComponents.Label {
+                        text: departure.modelData.text
+                        color: departure.modelData.late ? Kirigami.Theme.negativeTextColor : Kirigami.Theme.textColor
+                        textFormat: Text.PlainText
+                        Layout.fillHeight: true
+                        verticalAlignment: Text.AlignVCenter
+                    }
+
+                    // Takes its own click, so the popup is left as it was.
+                    PlasmaCore.ToolTipArea {
+                        visible: next.canSend
+                        mainText: "Send " + departure.modelData.mode + " trip to phone"
+                        implicitWidth: send.implicitWidth
+                        implicitHeight: send.implicitHeight
+                        Layout.alignment: Qt.AlignVCenter
+
+                        PlasmaComponents.ToolButton {
+                            id: send
+
+                            anchors.fill: parent
+                            text: "Send " + departure.modelData.mode + " trip to phone"
+                            display: QQC2.AbstractButton.IconOnly
+                            icon.name: "smartphone-symbolic"
+                            icon.width: Kirigami.Units.iconSizes.small
+                            icon.height: Kirigami.Units.iconSizes.small
+                            onClicked: next.send(departure.modelData.mode)
+                        }
+                    }
                 }
             }
         }

@@ -122,4 +122,10 @@ QString departureLabel(const Departure &departure, const QLocale &locale);
 // ("Car 12:30 PM ~$24 · 15 min drive").
 QString departureSummary(const Departure &departure, const QLocale &locale);
 
+// The program and arguments that hand one departure to the rc file's
+// SendCommand: the command split the way a shell would, then the departure's
+// mode and the event's location as two more arguments, run without a shell.
+// Empty when the command or the location is blank.
+QStringList sendCommandLine(const QString &command, const QString &mode, const QString &location);
+
 }

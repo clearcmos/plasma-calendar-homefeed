@@ -29,7 +29,7 @@ private Q_SLOTS:
 
     void fetchesTheConfiguredFeed()
     {
-        configure(fixtureUrl(u"feed.json"_s), u"#3daee9"_s);
+        configure(fixtureUrl(u"feed.json"_s), u"#3daee9"_s, u"send-trip --to phone"_s);
         HomeFeed::FeedSource source;
         QSignalSpy fetched(&source, &HomeFeed::FeedSource::eventsFetched);
         QSignalSpy notices(&source, &HomeFeed::FeedSource::noticesFetched);
@@ -39,6 +39,7 @@ private Q_SLOTS:
         QCOMPARE(notices.takeFirst().at(0).toStringList().size(), 2);
         QVERIFY(!source.isFetching());
         QCOMPARE(source.eventColor(), u"#3daee9"_s);
+        QCOMPARE(source.sendCommand(), u"send-trip --to phone"_s);
     }
 
     void staysOfflineWithoutAUrl()
@@ -75,11 +76,12 @@ private:
         return QUrl::fromLocalFile(QStringLiteral(FIXTURE_DIR) + u'/' + name).toString();
     }
 
-    static void configure(const QString &feedUrl, const QString &eventColor)
+    static void configure(const QString &feedUrl, const QString &eventColor, const QString &sendCommand = QString())
     {
         KConfigGroup general = KSharedConfig::openConfig(u"plasma-calendar-homefeedrc"_s, KConfig::NoGlobals)->group(u"General"_s);
         general.writeEntry("FeedUrl", feedUrl);
         general.writeEntry("EventColor", eventColor);
+        general.writeEntry("SendCommand", sendCommand);
         general.sync();
     }
 };
