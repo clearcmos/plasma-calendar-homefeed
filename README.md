@@ -44,8 +44,8 @@ and fetches on the same interval as the clock plugin.
 - The time is in the desktop's locale. The day reads nothing for today, then
   "Tomorrow", the weekday within the coming week, then the date ("Oct 26").
 - When the event carries `departures`, each shows after the time as "Bus
-  leave 12:05 PM", in the negative text color as "Bus leave now" once that
-  time passes, until the event starts.
+  12:05 PM", with its fare when there is one ("Car 12:30 PM ~$24"), in the
+  negative text color once that time passes, until the event starts.
 - The popup lists the next 20 events under day headings ("Today",
   "Tomorrow", "Thu Oct 22"), each with its time, title, location, and
   departures with their detail.
@@ -76,7 +76,7 @@ A JSON object with an `events` array. Everything else is informational.
       "color": "#7986cb",
       "departures": [
         {"mode": "Bus", "leave": "2026-08-25T13:05:00-04:00", "detail": "45 min"},
-        {"mode": "Car", "leave": "2026-08-25T13:30:00-04:00", "detail": "15 min drive"}
+        {"mode": "Car", "leave": "2026-08-25T13:30:00-04:00", "detail": "15 min drive", "fare": "~$24"}
       ]
     },
     {
@@ -106,7 +106,8 @@ Rules:
 - `location`, `description`, `url`, and `color` may be null or absent.
 - `departures` is optional: when to leave for the event, one entry per means
   of travel, in display order. `mode` and an RFC 3339 `leave` are required;
-  an entry missing either is dropped. `detail` is optional free text. Only
+  an entry missing either is dropped. `detail` and `fare` are optional free
+  text; `fare` is shown on the panel line, `detail` only in the popup. Only
   the widget uses them; the clock plugin ignores them.
 
 The producer is out of scope for this repository. The author's is a small

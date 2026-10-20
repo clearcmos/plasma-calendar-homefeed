@@ -164,3 +164,6 @@ CI runs exactly these, in this order, then checks the install layout
 - 2026-10-18: The popup's rows come from C++ as a `QVariantList`, with the
   day heading set only on each day's first row, rather than a ListView
   `section`: sections need a model role, which a plain list does not have.
+- 2026-10-19: Departure labels dropped the word "leave" ("Bus 12:05 PM"),
+  and a passed time stays a time in the negative color instead of "now".
+  An optional `fare` rides on the panel line; `detail` stays popup only.

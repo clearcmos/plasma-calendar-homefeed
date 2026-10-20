@@ -20,11 +20,12 @@ namespace HomeFeed
 
 // When to set off for an event by one means of travel, as the feed's
 // producer computed it: "mode" names the means ("Bus"), "detail" says more
-// ("40 min").
+// ("40 min"), "fare" is a short price ("~$24").
 struct Departure {
     QString mode;
     QDateTime leave;
     QString detail;
+    QString fare;
 };
 
 struct FeedEvent {
@@ -111,7 +112,7 @@ QDate listDay(const CalendarEvents::EventData &event, const QDateTime &now);
 // after, since by then it is too late to set off.
 QList<Departure> pendingDepartures(const FeedEvent &event, const QDateTime &now);
 
-// "Bus leave 12:05 PM", or "Bus leave now" once that time has passed.
-QString departureLabel(const Departure &departure, const QDateTime &now, const QLocale &locale);
+// "Bus 12:05 PM", with the fare after it when there is one ("Car 12:30 PM ~$24").
+QString departureLabel(const Departure &departure, const QLocale &locale);
 
 }

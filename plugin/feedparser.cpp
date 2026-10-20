@@ -95,7 +95,8 @@ QList<HomeFeed::Departure> parseDepartures(const QJsonValue &value)
         const QJsonObject object = entry.toObject();
         HomeFeed::Departure departure{stringOrEmpty(object, "mode"_L1),
                                       QDateTime::fromString(stringOrEmpty(object, "leave"_L1), Qt::ISODateWithMs),
-                                      stringOrEmpty(object, "detail"_L1)};
+                                      stringOrEmpty(object, "detail"_L1),
+                                      stringOrEmpty(object, "fare"_L1)};
         if (!departure.mode.isEmpty() && departure.leave.isValid()) {
             departures.append(departure);
         }
@@ -330,11 +331,10 @@ QList<Departure> pendingDepartures(const FeedEvent &event, const QDateTime &now)
     return event.departures;
 }
 
-QString departureLabel(const Departure &departure, const QDateTime &now, const QLocale &locale)
+QString departureLabel(const Departure &departure, const QLocale &locale)
 {
-    const QDateTime leave = departure.leave.toLocalTime();
-    const QString when = leave <= now ? u"now"_s : locale.toString(leave.time(), QLocale::ShortFormat);
-    return departure.mode + u" leave "_s + when;
+    const QString label = departure.mode + u' ' + locale.toString(departure.leave.toLocalTime().time(), QLocale::ShortFormat);
+    return departure.fare.isEmpty() ? label : label + u' ' + departure.fare;
 }
 
 bool sameEvent(const EventData &a, const EventData &b)

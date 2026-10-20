@@ -394,21 +394,22 @@ private Q_SLOTS:
         QCOMPARE(event->departures.at(0).leave.toUTC(), QDateTime(QDate(2026, 8, 25), QTime(13, 10), QTimeZone::UTC));
         QCOMPARE(event->departures.at(0).detail, u"40 min"_s);
         QCOMPARE(event->departures.at(1).detail, QString());
+        QCOMPARE(event->departures.at(0).fare, QString());
+        QCOMPARE(event->departures.at(1).fare, u"~$24"_s);
         QVERIFY(find(m_result, u"allday-single"_s)->departures.isEmpty());
     }
 
     void departuresShowOnlyBeforeTheEventStarts()
     {
         FeedEvent event = timed(u"dentist"_s, at(19, 14), at(19, 15));
-        event.departures = {{u"Bus"_s, at(19, 13, 10), u"40 min"_s}, {u"Car"_s, at(19, 13, 35), QString()}};
+        event.departures = {{u"Bus"_s, at(19, 13, 10), u"40 min"_s, QString()}, {u"Car"_s, at(19, 13, 35), QString(), u"~$24"_s}};
         const QLocale locale(QLocale::English, QLocale::UnitedStates);
-        const QString ten = locale.toString(QTime(13, 10), QLocale::ShortFormat);
 
         QCOMPARE(HomeFeed::pendingDepartures(event, at(19, 9)).size(), 2);
-        QCOMPARE(HomeFeed::departureLabel(event.departures.at(0), at(19, 9), locale), u"Bus leave "_s + ten);
-        // Past its leave time but before the event: still shown, as "now".
+        QCOMPARE(HomeFeed::departureLabel(event.departures.at(0), locale), u"Bus "_s + locale.toString(QTime(13, 10), QLocale::ShortFormat));
+        QCOMPARE(HomeFeed::departureLabel(event.departures.at(1), locale), u"Car "_s + locale.toString(QTime(13, 35), QLocale::ShortFormat) + u" ~$24"_s);
+        // Past its leave time but before the event: still shown.
         QCOMPARE(HomeFeed::pendingDepartures(event, at(19, 13, 20)).size(), 2);
-        QCOMPARE(HomeFeed::departureLabel(event.departures.at(0), at(19, 13, 20), locale), u"Bus leave now"_s);
         QVERIFY(HomeFeed::pendingDepartures(event, at(19, 14)).isEmpty());
     }
 
