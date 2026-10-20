@@ -112,6 +112,7 @@ void FeedSource::onReplyFinished(QNetworkReply *reply)
     if (result.skipped > 0) {
         qCInfo(HOMEFEED) << "Skipped" << result.skipped << "malformed feed entries";
     }
+    Q_EMIT noticesFetched(result.notices);
     Q_EMIT eventsFetched(result.events);
 }
 

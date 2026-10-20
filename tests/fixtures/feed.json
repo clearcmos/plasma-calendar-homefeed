@@ -3,6 +3,7 @@
   "timezone": "UTC",
   "window": {"start": "2026-05-27", "end": "2027-08-25"},
   "event_count": 8,
+  "notices": ["55 North · Saint-Laurent / Ontario: cancelled", 7, "  ", "20 West · Crémazie / De Gaspé: relocated"],
   "events": [
     {
       "uid": "timed-single",

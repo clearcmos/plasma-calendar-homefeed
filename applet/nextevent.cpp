@@ -41,7 +41,15 @@ NextEvent::NextEvent(QObject *parent)
 
     connect(&m_source, &HomeFeed::FeedSource::settingsChanged, this, [this] {
         m_events.clear();
+        m_notices.clear();
+        Q_EMIT changed();
         update();
+    });
+    connect(&m_source, &HomeFeed::FeedSource::noticesFetched, this, [this](const QStringList &notices) {
+        if (notices != m_notices) {
+            m_notices = notices;
+            Q_EMIT changed();
+        }
     });
     connect(&m_source, &HomeFeed::FeedSource::eventsFetched, this, [this](const QList<HomeFeed::FeedEvent> &events) {
         m_events = events;
@@ -74,6 +82,11 @@ const QString &NextEvent::location() const
 const QVariantList &NextEvent::departures() const
 {
     return m_departures;
+}
+
+const QStringList &NextEvent::notices() const
+{
+    return m_notices;
 }
 
 const QVariantList &NextEvent::upcoming() const

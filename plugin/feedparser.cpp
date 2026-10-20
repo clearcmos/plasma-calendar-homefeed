@@ -147,6 +147,13 @@ ParseResult parseFeed(const QByteArray &document)
         return result;
     }
 
+    const QJsonArray notices = root.value("notices"_L1).toArray();
+    for (const QJsonValue &notice : notices) {
+        if (notice.isString() && !notice.toString().trimmed().isEmpty()) {
+            result.notices.append(notice.toString().trimmed());
+        }
+    }
+
     const QJsonObject window = root.value("window"_L1).toObject();
     result.windowStart = QDate::fromString(stringOrEmpty(window, "start"_L1), Qt::ISODate);
     result.windowEnd = QDate::fromString(stringOrEmpty(window, "end"_L1), Qt::ISODate);

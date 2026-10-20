@@ -385,6 +385,12 @@ private Q_SLOTS:
         QCOMPARE(HomeFeed::whenLabel(allDay(u"e"_s, day, day).data, at(19, 9), locale), expected);
     }
 
+    void noticesKeepNonEmptyStringsInOrder()
+    {
+        QCOMPARE(m_result.notices, QStringList({u"55 North · Saint-Laurent / Ontario: cancelled"_s, u"20 West · Crémazie / De Gaspé: relocated"_s}));
+        QVERIFY(HomeFeed::parseFeed(QByteArrayLiteral("{\"events\":[]}")).notices.isEmpty());
+    }
+
     void departuresParseAndDropMalformedEntries()
     {
         const FeedEvent *event = find(m_result, u"timed-single"_s);

@@ -49,7 +49,7 @@ and fetches on the same interval as the clock plugin.
 - The popup lists the next 20 events under day headings ("Today",
   "Tomorrow", "Thu Oct 22"), each with its time, title, location, and
   departures with their fare and detail ("Car 12:30 PM ~$24 · 15 min
-  drive").
+  drive"). The feed's `notices`, if any, follow under a "Notices" heading.
 - Everything is re-evaluated after every fetch and at each minute boundary.
   The tooltip repeats the time and adds the location.
 - A line wider than 50 grid units elides the title.
@@ -105,6 +105,9 @@ Rules:
 - Entries without a `uid` or with an unparsable `start` are skipped and
   counted; the count is logged at info level. Unknown keys are ignored.
 - `location`, `description`, `url`, and `color` may be null or absent.
+- `notices` is optional: a top-level list of strings shown under the popup's
+  events, in order. Non-strings and blank strings are dropped. The clock
+  plugin ignores it.
 - `departures` is optional: when to leave for the event, one entry per means
   of travel, in display order. `mode` and an RFC 3339 `leave` are required;
   an entry missing either is dropped. `detail` and `fare` are optional free

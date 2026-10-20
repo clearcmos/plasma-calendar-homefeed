@@ -40,6 +40,8 @@ Q_SIGNALS:
     // with the new settings follows.
     void settingsChanged();
     void eventsFetched(const QList<HomeFeed::FeedEvent> &events);
+    // Emitted with every accepted document, before eventsFetched.
+    void noticesFetched(const QStringList &notices);
 
 private:
     void readSettings(const KConfigGroup &group);

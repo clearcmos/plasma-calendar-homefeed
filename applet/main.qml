@@ -118,6 +118,34 @@ PlasmoidItem {
                 model: next.upcoming
                 clip: true
 
+                footer: ColumnLayout {
+                    width: ListView.view.width
+                    spacing: 0
+                    visible: next.notices.length > 0
+
+                    PlasmaExtras.ListSectionHeader {
+                        text: "Notices"
+                        Layout.fillWidth: true
+                    }
+
+                    Repeater {
+                        model: next.notices
+
+                        delegate: PlasmaComponents.Label {
+                            required property string modelData
+
+                            text: modelData
+                            font: Kirigami.Theme.smallFont
+                            wrapMode: Text.Wrap
+                            textFormat: Text.PlainText
+                            Layout.fillWidth: true
+                            Layout.leftMargin: Kirigami.Units.largeSpacing
+                            Layout.rightMargin: Kirigami.Units.largeSpacing
+                            Layout.topMargin: Kirigami.Units.smallSpacing
+                        }
+                    }
+                }
+
                 PlasmaExtras.PlaceholderMessage {
                     anchors.centerIn: parent
                     width: parent.width - Kirigami.Units.gridUnit * 4

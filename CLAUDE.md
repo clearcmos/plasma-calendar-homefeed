@@ -168,3 +168,7 @@ CI runs exactly these, in this order, then checks the install layout
   and a passed time stays a time in the negative color instead of "now".
   An optional `fare` and the `detail` show only in the popup; the panel line
   stays mode and time.
+- 2026-10-19: A top-level `notices` list of plain strings rides the feed and
+  shows under the popup's events. FeedSource reports it through its own
+  `noticesFetched` signal, so the clock plugin's `eventsFetched` contract is
+  unchanged.

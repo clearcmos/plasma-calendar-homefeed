@@ -36,6 +36,9 @@ struct FeedEvent {
 
 struct ParseResult {
     QList<FeedEvent> events;
+    // Free-text notices the producer wants shown beside the events (for
+    // example transit stop closures), in display order.
+    QStringList notices;
     QDate windowStart;
     QDate windowEnd;
     int skipped = 0;

@@ -32,8 +32,11 @@ private Q_SLOTS:
         configure(fixtureUrl(u"feed.json"_s), u"#3daee9"_s);
         HomeFeed::FeedSource source;
         QSignalSpy fetched(&source, &HomeFeed::FeedSource::eventsFetched);
+        QSignalSpy notices(&source, &HomeFeed::FeedSource::noticesFetched);
         QVERIFY(fetched.wait());
         QCOMPARE(fetched.takeFirst().at(0).value<QList<HomeFeed::FeedEvent>>().size(), 8);
+        QCOMPARE(notices.size(), 1);
+        QCOMPARE(notices.takeFirst().at(0).toStringList().size(), 2);
         QVERIFY(!source.isFetching());
         QCOMPARE(source.eventColor(), u"#3daee9"_s);
     }

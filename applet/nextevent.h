@@ -28,6 +28,8 @@ class NextEvent : public QObject
     // [{heading, time, title, lines, departures: [{text, summary, late}]}];
     // heading is set only on the first row of each day.
     Q_PROPERTY(QVariantList upcoming READ upcoming NOTIFY changed)
+    // The feed's notices, shown under the popup's events.
+    Q_PROPERTY(QStringList notices READ notices NOTIFY changed)
 
 public:
     explicit NextEvent(QObject *parent = nullptr);
@@ -38,6 +40,7 @@ public:
     const QString &location() const;
     const QVariantList &departures() const;
     const QVariantList &upcoming() const;
+    const QStringList &notices() const;
 
 Q_SIGNALS:
     void changed();
@@ -56,4 +59,5 @@ private:
     QString m_location;
     QVariantList m_departures;
     QVariantList m_upcoming;
+    QStringList m_notices;
 };
